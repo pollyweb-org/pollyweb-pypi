@@ -25,13 +25,28 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
-    if len(argv) != 2:
-        sys.exit("usage: pollyweb.demo.grab <pub.key> <dkim-name>")
+    # Accept two arguments each either key=value or key:value
+    params = {}
+    for arg in argv:
+        if "=" in arg:
+            key, val = arg.split("=", 1)
+        elif ":" in arg:
+            key, val = arg.split(":", 1)
+        else:
+            sys.exit(
+                "usage: pollyweb.demo.grab dkim=<pub.key> id=<keyname>"
+            )
+        params[key] = val
 
-    pub_file, dkim = argv
+    if "dkim" not in params or "id" not in params:
+        sys.exit(
+            "usage: pollyweb.demo.grab dkim=<pub.key> id=<keyname>"
+        )
 
-    # we don't actually read either argument in this demo, but we do
-    # validate that the pub.file exists to mimic some minimal behaviour.
+    pub_file = params["dkim"]
+    keyid = params["id"]  # currently unused
+
+    # mimic simple behavior by ensuring the dkim file exists
     if not os.path.exists(pub_file):
         sys.exit(f"error: file not found: {pub_file}")
 
