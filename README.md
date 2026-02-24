@@ -29,6 +29,12 @@ well, so the same functionality is available via::
 
     pollyweb-keys
 
+For temporary experiments you can use the `tmp/` directory which is committed
+empty but ignored by git.  Place any generated keys there to keep your
+working tree clean::
+
+    python -m pollyweb.demo.keys --pub tmp/pub.pem --priv tmp/priv.pem
+
 Another helper script demonstrates a second command.  It takes a public
 key filename and a DKIM identifier; older versions accepted two positional
 arguments, but the current syntax is key/value based.  Both values are
