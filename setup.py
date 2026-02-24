@@ -13,13 +13,12 @@ setup(
         "Logo": "https://www.pollyweb.org/images/pollyweb-logo.png",
     },
     packages=find_packages(),
-    install_requires=["cryptography>=41.0.0", "websocket-client>=1.6.0"],
+    install_requires=["cryptography>=41.0.0"],
     entry_points={
         "console_scripts": [
             # helper scripts for the demos
             "pollyweb-keys=pollyweb.demo.keys:main",
             "pollyweb-setup=pollyweb.demo.setup:main",
-            "pollyweb-emulate=pollyweb.demo.emulate:main",
         ],
     },
     python_requires='>=3.7',

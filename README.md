@@ -54,20 +54,4 @@ These forms allow easy extension if additional parameters are
 introduced later.
 
 
-## WebSocket demo client
-
-A third demo command implements the Python WebSocket client described in
-`CLIENT_INSTRUCTIONS.md`.  It connects to the server endpoint using the
-`domain` parameter as the `target` query string and prints any JSON
-messages received.
-
-Installation provides a `pollyweb-emulate` console script; the module can
-also be run directly::
-
-    pollyweb-emulate domain=example.com
-    # or
-    python -m pollyweb.demo.emulate domain:example.com
-
-The client relies on the external package `websocket-client`, which is a
-required dependency of the distribution.
 
