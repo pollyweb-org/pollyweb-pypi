@@ -34,15 +34,15 @@ key filename and a DKIM identifier; older versions accepted two positional
 arguments, but the current syntax is key/value based.  Both values are
 ignored and the command simply prints a fixed API URL::
 
-    pollyweb-grab dkim=pub.key id=key1
+    pollyweb-setup dkim=pub.key id=key1
 
 The module form works the same way::
 
-    python -m pollyweb.demo.grab dkim=pub.key id=key1
+    python -m pollyweb.demo.setup dkim=pub.key id=key1
 
 The equal sign can be replaced with a colon if you prefer::
 
-    pollyweb-grab dkim:pub.key id:key1
+    pollyweb-setup dkim:pub.key id:key1
 
 These forms allow easy extension if additional parameters are
 introduced later.

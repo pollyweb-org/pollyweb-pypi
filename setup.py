@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pollyweb",
-    version="0.1.8",
+    version="0.1.9",
     description="A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing.",
     author="jorgemf",
     license="Apache-2.0",
@@ -17,7 +17,7 @@ setup(
         "console_scripts": [
             # helper scripts for the demos
             "pollyweb-keys=pollyweb.demo.keys:main",
-            "pollyweb-grab=pollyweb.demo.grab:main",
+            "pollyweb-setup=pollyweb.demo.setup:main",
         ],
     },
     python_requires='>=3.7',

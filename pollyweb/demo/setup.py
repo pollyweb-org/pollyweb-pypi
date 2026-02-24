@@ -1,4 +1,4 @@
-"""Simple demo "grab" command.
+"""Simple demo "setup" command.
 
 This module provides a trivial CLI that accepts two required arguments:
 
@@ -10,15 +10,15 @@ simulating a pull request against the API.
 
 Usage:
 
-    python -m pollyweb.demo.grab pub.key example
+    python -m pollyweb.demo.setup dkim=pub.key id=key1
 
-A console script ``pollyweb-grab`` is provided after installation.
+A console script ``pollyweb-setup`` is provided after installation.
 """
 
 import sys
 import os
 
-URL = "https://api.pollyweb.org/demo/grab"
+URL = "https://api.pollyweb.org/demo/setup"
 
 
 def main(argv=None):
@@ -34,13 +34,13 @@ def main(argv=None):
             key, val = arg.split(":", 1)
         else:
             sys.exit(
-                "usage: pollyweb.demo.grab dkim=<pub.key> id=<keyname>"
+                "usage: pollyweb.demo.setup dkim=<pub.key> id=<keyname>"
             )
         params[key] = val
 
     if "dkim" not in params or "id" not in params:
         sys.exit(
-            "usage: pollyweb.demo.grab dkim=<pub.key> id=<keyname>"
+                "usage: pollyweb.demo.setup dkim=<pub.key> id=<keyname>"
         )
 
     pub_file = params["dkim"]
