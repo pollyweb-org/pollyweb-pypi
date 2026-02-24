@@ -5,8 +5,8 @@ from pollyweb.demo import keys
 
 
 def test_generate_keys_creates_files(tmp_path):
-    pub_file = tmp_path / "my_public.key"
-    priv_file = tmp_path / "my_private.key"
+    pub_file = tmp_path / "my_public.pem"
+    priv_file = tmp_path / "my_private.pem"
     # ensure they don't exist
     assert not pub_file.exists()
     assert not priv_file.exists()

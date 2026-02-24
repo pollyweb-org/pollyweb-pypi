@@ -20,7 +20,7 @@ run::
 
     python -m pollyweb.demo.keys
 
-By default this writes `pub.key` and `priv.key` in the current working
+By default this writes `pub.pem` and `priv.pem` in the current working
 directory.  You can customize the output names with `--pub` and
 `--priv`, and change the RSA key size with `--bits`.
 
@@ -28,4 +28,13 @@ A lightweight console script named ``pollyweb-keys`` is installed as
 well, so the same functionality is available via::
 
     pollyweb-keys
+
+Another helper script demonstrates a second command.  It takes a public
+key filename and a DKIM name (both ignored) and prints a fixed API URL::
+
+    pollyweb-grab pub.key example.com
+
+This mirrors the module invocation::
+
+    python -m pollyweb.demo.grab pub.key example.com
 

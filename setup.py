@@ -15,8 +15,9 @@ setup(
     install_requires=["cryptography>=41.0.0"],
     entry_points={
         "console_scripts": [
-            # helper script for the demo key generator
+            # helper scripts for the demos
             "pollyweb-keys=pollyweb.demo.keys:main",
+            "pollyweb-grab=pollyweb.demo.grab:main",
         ],
     },
     python_requires='>=3.7',

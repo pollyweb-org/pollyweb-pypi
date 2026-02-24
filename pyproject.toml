@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pollyweb"
-version = "0.1.6"
+version = "0.1.7"
 description = "A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing."
 authors = [ { name = "jorgemf" } ]
 license = { text = "Apache-2.0" }
@@ -12,5 +12,9 @@ readme = "README.md"
 requires-python = ">=3.7"
 
 dependencies = ["cryptography>=41.0.0"]
+
+# ``scripts`` are declared in setup.py because setuptools entry points need
+# to live outside of the [project] table when using this older style of
+# configuration.  We maintain parity with setup.py here to keep tooling happy.
 [project.urls]
 "Website" = "https://www.pollyweb.org"

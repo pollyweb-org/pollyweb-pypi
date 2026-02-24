@@ -56,7 +56,7 @@ except ImportError:  # pragma: no cover - fallback path
         return pub, priv
 
 
-def generate_keys(pub_path: str = "pub.key", priv_path: str = "priv.key", bits: int = 2048) -> None:
+def generate_keys(pub_path: str = "pub.pem", priv_path: str = "priv.pem", bits: int = 2048) -> None:
     """Generate key pair files in the current directory.
 
     :param pub_path: path where the public key will be written
@@ -86,10 +86,10 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Generate a public/private key pair.")
     parser.add_argument(
-        "--pub", default="pub.key", help="output filename for the public key"
+        "--pub", default="pub.pem", help="output filename for the public key"
     )
     parser.add_argument(
-        "--priv", default="priv.key", help="output filename for the private key"
+        "--priv", default="priv.pem", help="output filename for the private key"
     )
     parser.add_argument(
         "--bits", type=int, default=2048, help="key length in bits (RSA only)"
