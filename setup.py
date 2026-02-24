@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pollyweb",
-    version="0.1.4",
+    version="0.1.5",
     description="A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing.",
     author="jorgemf",
     license="Apache-2.0",

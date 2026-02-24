@@ -1,4 +1,4 @@
-# pollyweb
+# PollyWeb
 
 <img src="https://www.pollyweb.org/images/pollyweb-logo.png" alt="PollyWeb logo" width="66" />
 
