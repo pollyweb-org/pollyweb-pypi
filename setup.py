@@ -13,7 +13,11 @@ setup(
         "Logo": "https://www.pollyweb.org/images/pollyweb-logo.png",
     },
     packages=find_packages(),
-    install_requires=["cryptography>=41.0.0"],
+    install_requires=[
+        "cryptography>=41.0.0",
+        "pollyweb-pypi-utils",
+        "pollyweb-pypi-parallel",
+    ],
     entry_points={
         "console_scripts": [
             # helper scripts for the demos
