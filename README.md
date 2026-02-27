@@ -53,5 +53,15 @@ The equal sign can be replaced with a colon if you prefer::
 These forms allow easy extension if additional parameters are
 introduced later.
 
+## Git push guard (run tests before push)
+
+This repository includes a `pre-push` hook at `.githooks/pre-push` that runs
+`pytest` and blocks `git push` if tests fail.
+
+Enable it once per local clone:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 

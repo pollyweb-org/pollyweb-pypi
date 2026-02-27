@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+set -eu
+
+echo "Running test suite before push..."
+
+if ! pytest; then
+  echo ""
+  echo "Push blocked: tests failed."
+  exit 1
+fi
+
+echo "Tests passed. Continuing push."
