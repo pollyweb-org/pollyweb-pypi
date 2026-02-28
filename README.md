@@ -53,10 +53,11 @@ The equal sign can be replaced with a colon if you prefer::
 These forms allow easy extension if additional parameters are
 introduced later.
 
-## Git push guard (run tests before push)
+## Git push guard (tests + security audit)
 
 This repository includes a `pre-push` hook at `.githooks/pre-push` that runs
-`pytest` and blocks `git push` if tests fail.
+`pytest` and `pip-audit` against the local project, and blocks `git push` when
+tests fail or when dependency vulnerabilities are reported.
 
 Enable it once per local clone:
 
@@ -64,4 +65,8 @@ Enable it once per local clone:
 git config core.hooksPath .githooks
 ```
 
+Install the security scanner once:
 
+```bash
+python -m pip install pip-audit
+```

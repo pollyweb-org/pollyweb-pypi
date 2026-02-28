@@ -10,4 +10,21 @@ if ! pytest; then
   exit 1
 fi
 
-echo "Tests passed. Continuing push."
+echo "Running dependency security audit before push..."
+
+if ! command -v pip-audit >/dev/null 2>&1; then
+  echo ""
+  echo "Push blocked: pip-audit is not installed."
+  echo "Install it with: python -m pip install pip-audit"
+  exit 1
+fi
+
+# Scan project dependencies (from the local project) and fail when known vulnerabilities exist.
+if ! pip-audit --progress-spinner off .; then
+  echo ""
+  echo "Push blocked: dependency security issues are pending."
+  echo "Fix or explicitly resolve the reported vulnerabilities, then push again."
+  exit 1
+fi
+
+echo "Tests and security audit passed. Continuing push."
