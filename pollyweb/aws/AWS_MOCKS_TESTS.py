@@ -1,5 +1,5 @@
 from pollyweb.utils.LOG import LOG
-from PW_PARALLEL.PARALLEL import PARALLEL
+from pollyweb.parallel.PARALLEL import PARALLEL
 
 class AWS_MOCKS_TESTS:
     

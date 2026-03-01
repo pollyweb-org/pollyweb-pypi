@@ -2,7 +2,7 @@ from LOG import LOG
 from DEPLOYER_RESULTS import DEPLOYER_RESULTS
 from DEPLOYER_TASK import DEPLOYER_TASK
 from aws.ITEM import ITEM
-from PW_PARALLEL.PARALLEL_THREAD_POOL import PARALLEL_THREAD_POOL
+from pollyweb.parallel.PARALLEL_THREAD_POOL import PARALLEL_THREAD_POOL
 from pollyweb.utils.STRUCT import STRUCT   
 from pollyweb.utils.UTILS import UTILS 
 

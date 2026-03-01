@@ -23,7 +23,7 @@ class DEPLOYER(DEPLOYER_BASE):
         super().__init__(deployArgs)
         
         # Prepare the runner to be able to delete the logs.
-        from PW_PARALLEL.PARALLEL_THREAD_POOL import PARALLEL_THREAD_POOL
+        from pollyweb.parallel.PARALLEL_THREAD_POOL import PARALLEL_THREAD_POOL
         self._runner:PARALLEL_THREAD_POOL = None
 
 
