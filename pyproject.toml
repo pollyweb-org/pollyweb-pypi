@@ -21,3 +21,10 @@ dependencies = [
 # configuration.  We maintain parity with setup.py here to keep tooling happy.
 [project.urls]
 "Website" = "https://www.pollyweb.org"
+
+[tool.pytest.ini_options]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+    "test.py",
+]

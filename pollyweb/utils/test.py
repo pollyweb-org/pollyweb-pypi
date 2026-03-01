@@ -1,6 +1,6 @@
-from .LOG import LOG
-from .RUNNER import RUNNER
-from .TEST_UTILS import TEST_UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.RUNNER import RUNNER
+from pollyweb.utils.TEST_UTILS import TEST_UTILS
 
 
 def main() -> None:
@@ -13,4 +13,9 @@ def main() -> None:
     )
 
 
-main()
+def test_utils_runner() -> None:
+    main()
+
+
+if __name__ == "__main__":
+    main()
