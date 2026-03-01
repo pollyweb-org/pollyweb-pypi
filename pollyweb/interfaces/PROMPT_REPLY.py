@@ -1,9 +1,9 @@
 from PW import PW
 from PROMPT import PROMPT
 from PROMPT_OPTION import PROMPT_OPTION
-from pollyweb import UTILS
-from pollyweb import STRUCT
-from pollyweb import LOG
+from ..utils import UTILS
+from ..utils import STRUCT
+from ..utils import LOG
      
 
 

@@ -2,8 +2,8 @@
 
 from .CODE_CODES import CODE_CODES
 from .ITEM import ITEM
-from pollyweb import UTILS
-from pollyweb import LOG
+from ..utils import UTILS
+from ..utils import LOG
 
 
 class CODE(ITEM, CODE_CODES):

@@ -1,7 +1,7 @@
-from pollyweb import UTILS
-from pollyweb import STRUCT
+from ..utils import UTILS
+from ..utils import STRUCT
 from .CODE import CODE
-from pollyweb import LOG
+from ..utils import LOG
 
 
 class CONSUMER_QUERY(STRUCT):

@@ -6,9 +6,9 @@ import json
 from typing import Any, Optional, cast
 from urllib import request
 
-from pollyweb import LOG
-from pollyweb import STRUCT
-from pollyweb import UTILS
+from ..utils import LOG
+from ..utils import STRUCT
+from ..utils import UTILS
 
 
 class MSG(STRUCT):

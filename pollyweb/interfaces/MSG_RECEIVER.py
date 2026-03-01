@@ -3,8 +3,8 @@
 import json
 from typing import Any, Callable, Optional
 
-from pollyweb import LOG
-from pollyweb import UTILS
+from ..utils import LOG
+from ..utils import UTILS
 from .MSG import MSG
 
 

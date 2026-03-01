@@ -1,7 +1,7 @@
 from .PROMPT_OPTION import PROMPT_OPTION
 from .PROMPT import PROMPT
 from pollyweb import TESTS
-from pollyweb import LOG
+from ..utils import LOG
 import json
 
 

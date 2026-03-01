@@ -3,9 +3,9 @@
 # 👉 https://stackoverflow.com/questions/33533148/how-do-i-type-hint-a-method-with-the-type-of-the-enclosing-class
 from __future__ import annotations
 
-from pollyweb import STRUCT
-from pollyweb import UTILS
-from pollyweb import LOG
+from ..utils import STRUCT
+from ..utils import UTILS
+from ..utils import LOG
 
 class CHARGE_OPTION(STRUCT):
     '''🧾

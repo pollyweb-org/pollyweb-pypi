@@ -1,8 +1,8 @@
 # 🔆 QR
 
 from typing import Union
-from pollyweb import STRUCT
-from pollyweb import LOG
+from ..utils import STRUCT
+from ..utils import LOG
    
 
 class QR(STRUCT):

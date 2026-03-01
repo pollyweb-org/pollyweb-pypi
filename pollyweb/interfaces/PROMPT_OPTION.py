@@ -1,8 +1,8 @@
   
 from __future__ import annotations
 from typing import Union
-from pollyweb import UTILS
-from pollyweb import LOG
+from ..utils import UTILS
+from ..utils import LOG
 
 
 class PROMPT_OPTION(str):

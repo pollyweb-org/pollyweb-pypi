@@ -1,7 +1,7 @@
   
 
 from SESSION import SESSION
-from pollyweb import STRUCT   
+from ..utils import STRUCT   
 
 
 class PROMPT_SESSION(STRUCT):

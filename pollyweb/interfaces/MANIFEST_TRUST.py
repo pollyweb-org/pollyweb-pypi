@@ -1,7 +1,7 @@
 from datetime import datetime
-from pollyweb import STRUCT
-from pollyweb import LOG
-from pollyweb import UTILS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 
 
 class MANIFEST_TRUST(STRUCT):
@@ -14,13 +14,13 @@ class MANIFEST_TRUST(STRUCT):
         queries: list[str] = []
 
         if trust.ContainsAtt('Query'):
-            queries = queries + [trust.GetAtt('Query')]
+            queries = queries + [str(trust.GetAtt('Query'))]
 
         if trust.ContainsAtt('Queries'):
             queries = queries + trust.ListStr('Queries')
 
         queries = [x.strip() for x in queries]
-        queries = set(queries)
+        queries = list(dict.fromkeys(queries))
 
         return queries
 
@@ -48,7 +48,7 @@ class MANIFEST_TRUST(STRUCT):
             if trust.GetStr('Domain') == '*':
                 domains = ['*']
             else:
-                domains = domains + [trust.GetAtt('Domain')]
+                domains = domains + [str(trust.GetAtt('Domain'))]
 
         if trust.ContainsAtt('Domains'):
             if trust.GetAtt('Domains') == '*':
@@ -60,7 +60,7 @@ class MANIFEST_TRUST(STRUCT):
             domains = ['*']
 
         domains = [x.strip() for x in domains]
-        domains = set(domains)
+        domains = list(dict.fromkeys(domains))
 
         return domains
 
@@ -76,7 +76,7 @@ class MANIFEST_TRUST(STRUCT):
             if trust.GetAtt('Role') == '*':
                 roles = ['*']
             else:
-                roles = roles + [trust.GetAtt('Role')]
+                roles = roles + [str(trust.GetAtt('Role'))]
 
         if trust.ContainsAtt('Roles'):
             if trust.GetAtt('Roles') == '*':
@@ -88,16 +88,16 @@ class MANIFEST_TRUST(STRUCT):
             roles = ['*']
 
         roles = [x.strip() for x in roles]
-        roles = set(roles)
+        roles_set = set(roles)
 
         # Return one of [], [CONSUMER], [VAULT], [CONSUMER,VAULT]
-        if '*' in roles:
+        if '*' in roles_set:
             return ['CONSUMER', 'VAULT']
-        if 'CONSUMER' in roles and 'VAULT' in roles:
+        if 'CONSUMER' in roles_set and 'VAULT' in roles_set:
             return ['CONSUMER', 'VAULT']
-        elif 'CONSUMER' in roles:
+        elif 'CONSUMER' in roles_set:
             return ['CONSUMER']
-        elif 'VAULT' in roles:
+        elif 'VAULT' in roles_set:
             return ['VAULT']
         else:
             return []
@@ -106,7 +106,7 @@ class MANIFEST_TRUST(STRUCT):
         roles = self.Roles()
         return role in roles or '*' in roles
 
-    def Action(self) -> str:
+    def Action(self) -> str | None:
         ''' 🤝 Returns GRANT or REVOKE.'''
         action = self.GetStr('Action', default='GRANT')
         if action in ['GRANT', 'REVOKE', 'INHERIT']:
@@ -132,10 +132,7 @@ class MANIFEST_TRUST(STRUCT):
 
     def Expires(self) -> datetime:
         ''' 🤝 Returns the expiration date.'''
-        ret = self.GetTimestamp('Expires', default=None)
-        ret = UTILS.ParseTimestamp(ret)
-        UTILS.AssertIsType(ret, datetime)
-        return ret
+        return self.RequireDateTime('Expires')
 
     def HasExpiration(self) -> bool:
         return self.ContainsAtt('Expires')

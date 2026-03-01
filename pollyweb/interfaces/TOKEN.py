@@ -1,5 +1,5 @@
-from pollyweb import STRUCT
-from pollyweb import UTILS
+from ..utils import STRUCT
+from ..utils import UTILS
 
 
 class TOKEN(STRUCT):
