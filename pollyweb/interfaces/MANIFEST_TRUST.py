@@ -1,10 +1,8 @@
 from datetime import datetime
-from pollyweb.utils.STRUCT import STRUCT
-from pollyweb.utils.LOG import LOG
-from pollyweb.utils.UTILS import UTILS
+import pollyweb as pw
 
 
-class MANIFEST_TRUST(STRUCT):
+class MANIFEST_TRUST(pw.STRUCT):
     ''' 📜 Manifest trust.
     Docs: https://quip.com/lcSaAX7AiEXL/-Domain#temp:C:RSE47ce7d6dfbd749689ca1b8a8b
     '''
@@ -119,8 +117,8 @@ class MANIFEST_TRUST(STRUCT):
             if att not in ['Expires', 'Title', 'Action', 'Role', 'Roles', 'Queries', 'Domains', 'Query', 'Domain']:
                 err = f'📜🤝 MANIFEST.TRUST.HasAliens(): unexpected att={att}!'
                 if raiseException:
-                    LOG.RaiseValidationException(err, self)
-                LOG.Print(err)
+                    pw.LOG.RaiseValidationException(err, self)
+                pw.LOG.Print(err)
                 return True
         return False
 
@@ -140,38 +138,38 @@ class MANIFEST_TRUST(STRUCT):
     def IsExpired(self):
         if not self.ContainsAtt('Expires'):
             return False
-        return self.Expires() < UTILS.Now()
+        return self.Expires() < pw.UTILS.Now()
 
     def IsValid(self, raiseException: bool = False):
-        LOG.Print(f'📜🤝 MANIFEST.TRUST.IsValid()', self)
+        pw.LOG.Print(f'📜🤝 MANIFEST.TRUST.IsValid()', self)
 
         if self.HasAliens(raiseException=raiseException):
             err = '📜🤝 MANIFEST.TRUST.IsValid(): has aliens!'
             if raiseException:
-                LOG.RaiseValidationException(err, self)
-            LOG.Print(err)
+                pw.LOG.RaiseValidationException(err, self)
+            pw.LOG.Print(err)
             return False
 
         if self.Queries() == []:
             err = '📜🤝 MANIFEST.TRUST.IsValid(): missing Queries!'
             if raiseException:
-                LOG.RaiseValidationException(err, self)
-            LOG.Print(err)
+                pw.LOG.RaiseValidationException(err, self)
+            pw.LOG.Print(err)
             return False
 
         if self.Action() not in ['GRANT', 'REVOKE', 'INHERIT']:
             err = '📜🤝 MANIFEST.TRUST.IsValid(): invalid Action!'
             if raiseException:
-                LOG.RaiseValidationException(err, f'action={self.Action()}', self)
-            LOG.Print(err)
+                pw.LOG.RaiseValidationException(err, f'action={self.Action()}', self)
+            pw.LOG.Print(err)
             return False
 
         for role in self.Roles():
             if role not in ['VAULT', 'CONSUMER', '*']:
                 err = f'📜🤝 MANIFEST.TRUST.IsValid(): invalid Role={role}'
                 if raiseException:
-                    LOG.RaiseValidationException(err, self)
-                LOG.Print(err)
+                    pw.LOG.RaiseValidationException(err, self)
+                pw.LOG.Print(err)
                 return False
 
         return True
@@ -185,39 +183,39 @@ class MANIFEST_TRUST(STRUCT):
         raiseException: bool = False
     ) -> bool:
 
-        LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable(target, role, code)',
-                  f'{target=}', f'{role=}', f'{code=}', f'{action=}',
-                  'self=', self)
+        pw.LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable(target, role, code)',
+                 f'{target=}', f'{role=}', f'{code=}', f'{action=}',
+                 'self=', self)
 
         # Validate the request.
-        UTILS.AssertIsAnyValue(action, ['GRANT', 'REVOKE', 'INHERIT'])
-        UTILS.RequireArgs([target, role, code, action])
+        pw.UTILS.AssertIsAnyValue(action, ['GRANT', 'REVOKE', 'INHERIT'])
+        pw.UTILS.RequireArgs([target, role, code, action])
 
         # Check if the syntax is valid.
         if not self.IsValid(raiseException=raiseException):
-            LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not valid.')
+            pw.LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not valid.')
             return False
 
         # Check if it's a GRANT (not REVOKE or INHERIT)
         if action == 'GRANT':
             if not self.IsGrant():
-                LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not a Grant.')
+                pw.LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not a Grant.')
                 return False
 
         # Check if it's a REVOKE (not GRANT or INHERIT)
         if action == 'REVOKE':
             if not self.IsRevoke():
-                LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not a Revoke.')
+                pw.LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: not a Revoke.')
                 return False
 
         # Check if it's already expired.
         if self.IsExpired():
-            LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: expired.')
+            pw.LOG.Print('📜🤝 MANIFEST.TRUST.IsTrustable: expired.')
             return False
 
         # Check if it includes the requested role (VAULT, CONSUMER).
         if not self.IncludesRole(role):
-            LOG.Print(
+            pw.LOG.Print(
                 f"📜🤝 MANIFEST.TRUST.IsTrustable(): unmatch Role.",
                 f'looking for {role=}',
                 f'in the trust roles={self.Roles()}',
@@ -226,17 +224,17 @@ class MANIFEST_TRUST(STRUCT):
 
         # Discard on domain mismatch.
         if not self.IncludesDomain(target):
-            LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable: unmatch Domain.')
+            pw.LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable: unmatch Domain.')
             return False
 
         # Finally check for query match.
         if self.IncludesCode(code):
-            LOG.Print(
+            pw.LOG.Print(
                 f'📜🤝 MANIFEST.TRUST.IsTrustable: match found!',
                 f'looking for {code=}',
                 f'looking for {action=}',
                 'self=', self)
             return True
 
-        LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable: no matching queries.')
+        pw.LOG.Print(f'📜🤝 MANIFEST.TRUST.IsTrustable: no matching queries.')
         return False

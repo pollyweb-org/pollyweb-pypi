@@ -11,6 +11,16 @@ from pollyweb import hello
 print(hello())
 ```
 
+You can also import the package as a short namespace and access classes lazily:
+
+```python
+import pollyweb as pw
+
+code = pw.CODE()
+```
+
+This avoids wildcard imports and still enables a concise `pw.X` style.
+
 
 ## Demo key generator
 
