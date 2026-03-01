@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pollyweb",
-    version="0.1.11",
+    version="0.1.12",
     description="A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing.",
     author="jorgemf",
     author_email="pollyweb@pollycore.net",
@@ -15,6 +15,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "cryptography>=41.0.0",
+        "pollyweb-domain",
     ],
     entry_points={
         "console_scripts": [
