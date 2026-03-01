@@ -27,7 +27,18 @@ if ! "$PYTHON_BIN" -m pytest --version &>/dev/null; then
     exit 1
 fi
 
-if ! (cd "$REPO_ROOT" && "$PYTHON_BIN" -m pytest); then
+PYTEST_FILE_PATTERNS="test_*.py *_test.py *_TESTS.py"
+
+UPPER_TEST_FILES_COUNT="$((
+    $(cd "$REPO_ROOT" && find . -type f -name '*_TESTS.py' \
+        -not -path './.git/*' \
+        -not -path './.venv/*' \
+        -not -path './tmp/*' | wc -l)
+))"
+
+echo "==> Discovered $UPPER_TEST_FILES_COUNT *_TESTS.py files"
+
+if ! (cd "$REPO_ROOT" && "$PYTHON_BIN" -m pytest -o "python_files=$PYTEST_FILE_PATTERNS"); then
     echo ""
     echo "PUSH BLOCKED: Test suite failed."
     echo "Fix failing tests before pushing."

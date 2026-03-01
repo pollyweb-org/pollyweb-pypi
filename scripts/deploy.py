@@ -1,17 +1,16 @@
-# USAGE: python3 playbooks/deploy.py
-
 #!/usr/bin/env python3
+# USAGE: python3 scripts/deploy.py
+
 import re, subprocess, sys, shutil, pathlib, time, json
 from typing import Union
 from urllib import request as _urlrequest
 from urllib import error as _urlerror
 
 # --- Config ---
-PACKAGE_NAME = "pollyweb-utils"   # project.name in pyproject.toml
-IMPORT_CHECK  = "import PW_UTILS.hello"
+PACKAGE_NAME = "pollyweb"   # project.name in pyproject.toml
+IMPORT_CHECK  = "import pollyweb; print(pollyweb.hello())"
 HELLO_PATHS = [
-    pathlib.Path("hello.py"),
-    pathlib.Path("src/PW_UTILS/hello.py"),
+    pathlib.Path("pollyweb/__init__.py"),
 ]
 PYPROJECT = pathlib.Path("pyproject.toml")
 DIST_DIR = pathlib.Path("dist")
@@ -73,24 +72,20 @@ def update_pyproject():
 def update_hello(new_version: str):
     hello_path = next((p for p in HELLO_PATHS if p.exists()), None)
     if not hello_path:
-        raise Exception("[warn] hello.py not found; skipping hello() string sync")
+        print("[warn] hello target not found; skipping hello() string sync")
         return
     txt = read(hello_path)
-    # Replace 'version X.Y.Z' inside return string, if present
-    new_txt, n = re.subn(
-        r'(return\s+".*?version\s+)(\d+\.\d+\.\d+)(!?"\))',
-        rf"\g<1>{new_version}\g<3>",
+    new_txt = re.sub(
+        r'(?m)^\s*__version__\s*=\s*"\d+\.\d+\.\d+"\s*$',
+        f'__version__ = "{new_version}"',
         txt,
-        flags=re.IGNORECASE | re.DOTALL,
+        count=1,
     )
-    if n == 0:
-        # Fallback: replace first X.Y.Z in file
-        new_txt, n = re.subn(r'(\d+\.\d+\.\d+)', new_version, txt, count=1)
-    if n > 0:
+    if new_txt != txt:
         write(hello_path, new_txt)
-        print(f"[hello.py] synced embedded version -> {new_version}")
+        print(f"[{hello_path}] synced embedded version -> {new_version}")
     else:
-        print("[warn] did not update hello.py (pattern not found)")
+        print(f"[warn] did not update {hello_path} (__version__ assignment not found)")
 
 def ensure_tools():
     sh(python_exe(), "-m", "pip", "install", "--upgrade", "build", "twine")
@@ -104,8 +99,8 @@ def build():
     sh(python_exe(), "-m", "build")
 
 def upload_testpypi():
-    sh("twine", "upload", "--verbose", 
-       #"--repository", "testpypi", 
+    sh("twine", "upload", "--verbose",
+       #"--repository", "testpypi",
        "dist/*")
 
 def countdown(seconds: int, prefix: str = "Waiting"):
@@ -127,21 +122,13 @@ def installed_version(pkg: str) -> Union[str, None]:
 
 def pip_install_from_testpypi():
     sh(python_exe(), "-m", "pip", "install", "--no-cache-dir", "--force-reinstall",
-       #"-i", "https://test.pypi.org/simple/", 
+       #"-i", "https://test.pypi.org/simple/",
        PACKAGE_NAME)
 
 def run_import_check():
     sh(sys.executable, "-c", IMPORT_CHECK)
 
 def main():
-    is_pkg_repo = pathlib.Path("src").is_dir() and PYPROJECT.exists()
-    is_pollyweb_repo = (
-        pathlib.Path("python").is_dir() and
-        (pathlib.Path("tests").is_dir() or pathlib.Path("layers").is_dir())
-    )
-    if not (is_pkg_repo or is_pollyweb_repo):
-        print("pyproject.toml not found. Run from the project root.")
-        sys.exit(1)
     if not PYPROJECT.exists():
         print("pyproject.toml not found. Run from the project root.")
         sys.exit(1)
