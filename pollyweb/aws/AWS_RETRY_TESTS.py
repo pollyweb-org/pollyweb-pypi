@@ -1,6 +1,6 @@
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
-from PW_UTILS.TESTS import TESTS, ValidationException
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.TESTS import TESTS, ValidationException
 
 
 class AWS_RETRY_TESTS:

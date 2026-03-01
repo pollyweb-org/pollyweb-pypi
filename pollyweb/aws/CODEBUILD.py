@@ -4,7 +4,7 @@ from CODEBUILD_PROJECT import CODEBUILD_PROJECT
 
 import boto3
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 client = boto3.client('codebuild')
 
 

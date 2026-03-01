@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class COGNITO_MOCK:

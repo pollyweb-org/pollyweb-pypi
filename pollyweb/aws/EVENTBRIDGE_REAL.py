@@ -4,7 +4,7 @@ import json
 
 import boto3
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 events = boto3.client('events')
 
 class EVENTBRIDGE_REAL:

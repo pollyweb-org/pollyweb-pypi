@@ -1,8 +1,8 @@
 from DEPLOYER_EXEC_ARGS import DEPLOYER_EXEC_ARGS
 from LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 from dataclasses import dataclass, asdict
 
 

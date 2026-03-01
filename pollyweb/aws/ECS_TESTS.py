@@ -1,6 +1,6 @@
 from AWS import AWS
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 
 
 class ECS_TESTS:

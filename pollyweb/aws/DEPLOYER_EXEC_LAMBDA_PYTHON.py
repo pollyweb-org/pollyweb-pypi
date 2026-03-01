@@ -3,7 +3,7 @@ from DEPLOYER_TASK import DEPLOYER_TASK
 from aws.AWS import AWS
 from aws.LAMBDA_FUNCTION_REAL import LAMBDA_FUNCTION_REAL
 from LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class DEPLOYER_EXEC_LAMBDA_PYTHON(DEPLOYER_EXEC_LAMBDA):

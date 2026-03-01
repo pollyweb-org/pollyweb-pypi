@@ -1,8 +1,4 @@
-import sys
-
 from pollyweb import utils as pw
-
-sys.modules.setdefault("PW_UTILS", pw)
 
 from pollyweb.parallel.TEST_PARALLEL import TEST_PARALLEL
 

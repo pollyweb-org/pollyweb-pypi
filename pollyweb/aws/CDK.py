@@ -1,6 +1,6 @@
 # 📚 CDK
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 class CDK():
 
@@ -21,7 +21,7 @@ class CDK():
         
         # Deploy the CDK bootstrap.
         print(f'🤖 Deploying CDK bootstrap in {region} region...')
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         UTILS.OS().Execute(f'cdk bootstrap aws://{account}/{region}')
 
 
@@ -35,7 +35,7 @@ class CDK():
 
         # Check if the region is the requested.
         if region:
-            from PW_UTILS.UTILS import UTILS
+            from pollyweb.utils.UTILS import UTILS
             UTILS.AssertEqual(
                 given= current,
                 expect= region,
@@ -43,7 +43,7 @@ class CDK():
         
         # Deploy the CDK bootstrap.
         print(f'🤖 Deploying CDK bootstrap in {current} region...')
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         UTILS.OS().ExecuteShellLess(['cdk','bootstrap'])
         
 
@@ -64,7 +64,7 @@ class CDK():
         cmds += [ '--require-approval', 'never' ]
 
         # Execute the command.
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         UTILS.OS().ExecuteShellLess(cmds)
 
 
@@ -89,7 +89,7 @@ class CDK():
         LOG.Print(event)
 
         # Validate the input.
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         UTILS.AssertIsType(on_create, callable)
         UTILS.AssertIsType(on_update, callable)
         UTILS.AssertIsType(on_delete, callable)

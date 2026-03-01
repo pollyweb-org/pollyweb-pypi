@@ -3,12 +3,12 @@
 from ACM_CERTIFICATE import ACM_CERTIFICATE
 from APIGW_RESTAPI import APIGW_RESTAPI
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 import os
 
 import boto3
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 from WAF_WACL import WAF_WACL
 apigw_management = boto3.client('apigatewaymanagementapi')
 client = boto3.client('apigateway')

@@ -1,7 +1,7 @@
 
 from .PARALLEL_PROCESS_WRAPPER import PARALLEL_PROCESS_WRAPPER
 
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 class PARALLEL_PROCESS_WRAPPER_TEST:
 

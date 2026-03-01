@@ -2,7 +2,7 @@ from aws.AWS import AWS
 from DEPLOYER_DEPLOY import DEPLOYER_DEPLOY
 from DEPLOYER_TASK import DEPLOYER_TASK
 from aws.DYNAMO_MOCK import DYNAMO_MOCK
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 class DEPLOYER_TASKS():
     

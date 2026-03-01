@@ -1,7 +1,7 @@
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.UTILS import UTILS
 
 
 from typing import TypeVar, Generic, List

@@ -1,4 +1,4 @@
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 
 class APPCONFIG_APP_STRATEGY:

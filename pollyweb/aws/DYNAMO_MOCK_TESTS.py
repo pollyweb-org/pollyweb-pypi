@@ -1,8 +1,8 @@
 from ITEM import ITEM
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.TESTS import TESTS
 from DYNAMO_MOCK import DYNAMO_MOCK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class DYNAMO_MOCK_TESTS(DYNAMO_MOCK):

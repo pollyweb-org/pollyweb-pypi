@@ -1,7 +1,7 @@
 from AWS import AWS
-from PW_UTILS.LOG import LOG
-from PW_UTILS.TESTS import TESTS
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.TESTS import TESTS
+from pollyweb.utils.UTILS import UTILS
 
 
 class LAMBDA_REAL_TESTS:

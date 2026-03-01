@@ -1,9 +1,9 @@
 from __future__ import annotations
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.DIRECTORY import DIRECTORY
+from pollyweb.utils.DIRECTORY import DIRECTORY
 from ECR_REPO import ECR_REPO
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 
 import boto3
 client = boto3.client('ecr')

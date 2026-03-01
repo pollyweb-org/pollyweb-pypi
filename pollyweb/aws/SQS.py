@@ -2,13 +2,13 @@
 
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from SQS_QUEUE import SQS_QUEUE
 
 import boto3
 
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 sqs = boto3.client("sqs")
 
 class SQS(AWS_RESOURCE_POOL[SQS_QUEUE]):

@@ -1,7 +1,7 @@
 # 📚 SSM
 
 from botocore.exceptions import ClientError
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from AWS import AWS
 
 

@@ -7,13 +7,13 @@ import boto3
 
 from LAMBDA_FUNCTION import LAMBDA_FUNCTION
 from LAMBDA_FUNCTION_DEPLOY import LAMBDA_FUNCTION_DEPLOY
-from PW_UTILS.PRINTABLE import PRINTABLE
+from pollyweb.utils.PRINTABLE import PRINTABLE
 
 lambdaClient = boto3.client('lambda')
 lambda_client = lambdaClient
 
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class LAMBDA_FUNCTION_REAL(
@@ -91,7 +91,7 @@ class LAMBDA_FUNCTION_REAL(
             LOG.RaiseException(
                 '@: ' + returned['errorMessage'], returned, self)
 
-        from PW_UTILS.STRUCT import STRUCT
+        from pollyweb.utils.STRUCT import STRUCT
         ret = STRUCT(returned)
 
         if ret.GetAtt('errorMessage'):

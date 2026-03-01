@@ -1,8 +1,8 @@
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 import time
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 class APPCONFIG_APP_DEPLOY:
 

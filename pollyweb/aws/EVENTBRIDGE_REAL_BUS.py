@@ -1,5 +1,5 @@
 
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 import json
 import boto3

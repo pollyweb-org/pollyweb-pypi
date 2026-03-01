@@ -1,6 +1,6 @@
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
 
 
 from SSM_BASE import SSM_BASE

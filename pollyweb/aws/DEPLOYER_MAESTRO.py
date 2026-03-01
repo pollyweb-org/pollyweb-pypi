@@ -7,8 +7,8 @@ from DEPLOYER_MAESTRO_PARALLEL import DEPLOYER_MAESTRO_PARALLEL
 from DEPLOYER_TASK import DEPLOYER_TASK
 from LOG import LOG
 from PW_PARALLEL.PARALLEL import PARALLEL
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 from DEPLOYER_BASE import DEPLOYER_BASE
 
 

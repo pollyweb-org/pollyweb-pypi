@@ -1,7 +1,7 @@
 from ACM_CERTIFICATE import ACM_CERTIFICATE
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 from WAF_WACL import WAF_WACL   
 
 # Initialize a CloudFront client

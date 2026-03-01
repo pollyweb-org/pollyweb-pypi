@@ -1,6 +1,6 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM_TYPE
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL, AWS_RESOURCE_WRAP
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 
 from abc import ABC, abstractmethod
 from typing import List, TypeVar, Generic

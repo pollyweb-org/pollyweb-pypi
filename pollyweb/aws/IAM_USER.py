@@ -1,7 +1,7 @@
 # 📚 STS
 
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 
 class IAM_USER(STRUCT):
     '''👉️ Represents the logged user.'''

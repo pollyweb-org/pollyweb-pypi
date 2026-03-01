@@ -1,6 +1,6 @@
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 from WAF_WACL import WAF_WACL
 from botocore.exceptions import ClientError
 

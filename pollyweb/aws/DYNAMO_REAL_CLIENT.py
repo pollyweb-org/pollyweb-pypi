@@ -1,12 +1,12 @@
 # 📚 DYNAMO
 
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 from botocore.exceptions import ClientError
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class DYNAMO_REAL_CLIENT():

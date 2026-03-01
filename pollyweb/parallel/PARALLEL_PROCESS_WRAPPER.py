@@ -1,5 +1,5 @@
 
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 
 class PARALLEL_PROCESS_WRAPPER:

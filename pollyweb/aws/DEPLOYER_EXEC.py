@@ -3,7 +3,7 @@ from DEPLOYER_EXEC_DUMMY import DEPLOYER_EXEC_DUMMY
 from DEPLOYER_TASK import DEPLOYER_TASK
 from aws.AWS import AWS
 from LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 from DEPLOYER_EXEC_ARGS import DEPLOYER_EXEC_ARGS
 
 class DEPLOYER_EXEC():

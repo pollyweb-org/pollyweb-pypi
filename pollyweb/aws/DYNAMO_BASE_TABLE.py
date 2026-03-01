@@ -1,7 +1,7 @@
 # 📚 DYNAMO
 
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 
 
 class DYNAMO_BASE_TABLE(STRUCT):

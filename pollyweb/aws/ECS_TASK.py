@@ -1,4 +1,4 @@
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class ECS_TASK:

@@ -5,10 +5,10 @@ from AWS import AWS
 from AWS_RETRY import RetryWithBackoff
 from IAM_ROLE import IAM_ROLE
 from LAMBDA_FUNCTION import LAMBDA_FUNCTION
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.ZIP import ZIP
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.ZIP import ZIP
 
 
 # Initialize a boto3 client

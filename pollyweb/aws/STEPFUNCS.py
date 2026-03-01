@@ -1,7 +1,7 @@
 
 import boto3
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from STEPFUNCS_PARSER import STEPFUNCS_PARSER
 
 # Initialize the Boto3 client for Step Functions

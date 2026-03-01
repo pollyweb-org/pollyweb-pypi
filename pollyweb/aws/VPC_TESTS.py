@@ -1,6 +1,6 @@
 from AWS import AWS
 from AWS_RESOURCE_TESTER import AWS_RESOURCE_TESTER
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class VPC_TESTS(AWS_RESOURCE_TESTER):

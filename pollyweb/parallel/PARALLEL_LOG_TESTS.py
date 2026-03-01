@@ -1,4 +1,4 @@
-import PW_UTILS as pw
+import pollyweb.utils as pw
 from .PARALLEL import PARALLEL
 
 

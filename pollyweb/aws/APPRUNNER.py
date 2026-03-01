@@ -2,11 +2,11 @@ from APPRUNNER_CONFIG import APPRUNNER_CONFIG
 from APPRUNNER_SERVICE import APPRUNNER_SERVICE
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
 from ECR_REPO import ECR_REPO
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 client = boto3.client('apprunner')
 
 

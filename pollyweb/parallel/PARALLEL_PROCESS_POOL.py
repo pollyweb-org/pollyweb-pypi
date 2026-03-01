@@ -2,7 +2,7 @@ from .PARALLEL_PROCESS import PARALLEL_PROCESS
 
 
 
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 
 class PARALLEL_PROCESS_POOL(pw.PRINTABLE):

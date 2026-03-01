@@ -2,8 +2,8 @@ import boto3
 client = boto3.client('codedeploy')
 
 from CODEDEPLOY_APP import CODEDEPLOY_APP
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
 
 
 class CODEDEPLOY:

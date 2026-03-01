@@ -3,8 +3,8 @@ from DEPLOYER_TASK import DEPLOYER_TASK
 
 from dataclasses import dataclass, asdict
 
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.UTILS import UTILS
 
 @dataclass
 class DEPLOYER_MAESTRO_EXEC_ARGS(PRINTABLE):

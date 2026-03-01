@@ -1,6 +1,6 @@
 from AWS import AWS
 from AWS_RESOURCE_TESTER import AWS_RESOURCE_TESTER
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class ECR_TESTS(AWS_RESOURCE_TESTER):

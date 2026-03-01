@@ -1,8 +1,8 @@
 from DEPLOYER_EXEC_TASK import DEPLOYER_EXEC_TASK
 from aws.AWS import AWS
 from LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 
 class DEPLOYER_EXEC_PARAMETER(DEPLOYER_EXEC_TASK):
 

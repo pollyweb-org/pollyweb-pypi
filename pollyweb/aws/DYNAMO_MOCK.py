@@ -1,11 +1,11 @@
 from typing import Union
-from PW_UTILS.DIRECTORY import DIRECTORY
+from pollyweb.utils.DIRECTORY import DIRECTORY
 from DYNAMO_MOCK_TABLE import DYNAMO_MOCK_TABLE
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
 from DYNAMO_BASE import DYNAMO_BASE, DYNAMO_BASE_TABLE
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
 
 
 class DYNAMO_MOCK(DYNAMO_BASE):

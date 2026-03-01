@@ -1,7 +1,7 @@
 from AWS import AWS
 from AWS_RESOURCE_TESTER import AWS_RESOURCE_TESTER
-from PW_UTILS.LOG import LOG
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.TESTS import TESTS
 
 
 class APIGW_TESTS(AWS_RESOURCE_TESTER):

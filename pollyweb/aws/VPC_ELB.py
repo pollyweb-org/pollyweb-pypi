@@ -1,4 +1,4 @@
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from VPC_SECURITYGRP import VPC_SECURITYGRP
 from VPC_SUBNET import VPC_SUBNET
 

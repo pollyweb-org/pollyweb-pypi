@@ -1,7 +1,7 @@
 from DEPLOYER_EXEC_TASK import DEPLOYER_EXEC_TASK
 from aws.AWS import AWS
 from LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 class DEPLOYER_EXEC_POSTPROCESSOR(DEPLOYER_EXEC_TASK):
     

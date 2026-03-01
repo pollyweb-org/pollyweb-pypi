@@ -1,6 +1,6 @@
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 from APPCONFIG_MOCK import APPCONFIG_MOCK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class APPCONFIG_MOCK_TESTS(APPCONFIG_MOCK):

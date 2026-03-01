@@ -1,7 +1,7 @@
 
 import threading
 import sys
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 
 from .PARALLEL_DISPLAY_SLOT import PARALLEL_DISPLAY_SLOT

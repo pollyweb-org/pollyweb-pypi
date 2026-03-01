@@ -1,4 +1,4 @@
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from PW_PARALLEL.PARALLEL import PARALLEL
 
 class AWS_MOCKS_TESTS:

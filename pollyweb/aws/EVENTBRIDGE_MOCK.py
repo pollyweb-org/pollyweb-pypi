@@ -1,6 +1,6 @@
 
 from EVENTBRIDGE_MOCK_MESSAGE import EVENTBRIDGE_MOCK_MESSAGE
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 class EVENTBRIDGE_MOCK:
 

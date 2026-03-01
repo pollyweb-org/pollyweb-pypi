@@ -3,9 +3,9 @@
 import boto3
 import urllib.parse
 
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.STRUCT import STRUCT
 
 r53 = boto3.client('route53')
 

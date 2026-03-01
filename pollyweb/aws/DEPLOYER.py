@@ -3,9 +3,9 @@ from DEPLOYER_DEPLOY import DEPLOYER_DEPLOY
 from DEPLOYER_ARGS import DEPLOYER_ARGS
 from DEPLOYER_MAESTRO_EXEC_ARGS import DEPLOYER_MAESTRO_EXEC_ARGS
 from LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 from DEPLOYER_BASE import DEPLOYER_BASE
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 

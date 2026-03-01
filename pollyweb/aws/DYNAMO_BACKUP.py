@@ -1,6 +1,6 @@
 # 📚 DYNAMO
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 dynamoClient = boto3.client('dynamodb')

@@ -1,8 +1,8 @@
 import boto3
 from ACM_CERTIFICATE import ACM_CERTIFICATE
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 
 regionalClient = boto3.client('acm')        
 # CloudFront requires certificates in us-east-1

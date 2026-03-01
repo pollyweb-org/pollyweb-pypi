@@ -1,7 +1,7 @@
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 from VPC_NETWORK import VPC_NETWORK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 client = boto3.client('ec2')

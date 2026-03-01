@@ -1,5 +1,5 @@
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class VPC_SUBNET:

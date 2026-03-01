@@ -1,14 +1,14 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 from VPC_ELB import VPC_ELB
 from VPC_INTERNETGW import VPC_INTERNETGW
 from VPC_NATGW import VPC_NATGW
 from VPC_SECURITYGRP import VPC_SECURITYGRP
 from VPC_SUBNET import VPC_SUBNET
-from PW_UTILS.PRINTABLE import PRINTABLE
+from pollyweb.utils.PRINTABLE import PRINTABLE
 
 
 import boto3

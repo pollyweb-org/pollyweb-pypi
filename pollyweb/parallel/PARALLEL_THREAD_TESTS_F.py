@@ -3,7 +3,7 @@
 from .PARALLEL import  PARALLEL
 from .PARALLEL_TEST import PARALLEL_TEST
 
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 
 class PARALLEL_THREAD_TESTS_F(PARALLEL_TEST):

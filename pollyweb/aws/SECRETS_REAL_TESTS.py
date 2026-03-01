@@ -1,6 +1,6 @@
 from AWS import AWS
-from PW_UTILS.TESTS import TESTS
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.TESTS import TESTS
+from pollyweb.utils.UTILS import UTILS
 
 
 class SECRETS_REAL_TESTS:

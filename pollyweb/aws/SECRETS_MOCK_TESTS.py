@@ -1,7 +1,7 @@
 
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 from SECRETS_MOCK import SECRETS_MOCK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class SECRETS_MOCK_TESTS(SECRETS_MOCK):

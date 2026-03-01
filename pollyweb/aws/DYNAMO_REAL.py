@@ -3,15 +3,15 @@
 import boto3
 
 from LAMBDA_FUNCTION_REAL import LAMBDA_FUNCTION_REAL
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 dynamoResource = boto3.resource('dynamodb')
 
 import os
 
 from DYNAMO_REAL_TABLE_STRUCT import DYNAMO_REAL_TABLE_STRUCT
 from DYNAMO_BASE import DYNAMO_BASE, DYNAMO_BASE_TABLE
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
 
 
 class DYNAMO_REAL(DYNAMO_BASE):

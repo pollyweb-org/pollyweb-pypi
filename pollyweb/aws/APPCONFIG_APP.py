@@ -1,9 +1,9 @@
 from APPCONFIG_APP_ENV import APPCONFIG_APP_ENV
 from LAMBDA_FUNCTION import LAMBDA_FUNCTION
 from LAMBDA_FUNCTION_REAL import LAMBDA_FUNCTION_REAL
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 
 
 import boto3

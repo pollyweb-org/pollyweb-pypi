@@ -1,7 +1,7 @@
 import boto3
 import json
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 kms_client = boto3.client('kms')
 
 from AWS import AWS

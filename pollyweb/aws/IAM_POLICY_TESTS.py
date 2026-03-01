@@ -1,6 +1,6 @@
 
 from IAM_POLICY import IAM_POLICY
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 
 
 class IAM_POLICY_TESTS(IAM_POLICY):

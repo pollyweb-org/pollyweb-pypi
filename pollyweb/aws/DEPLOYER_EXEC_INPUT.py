@@ -1,6 +1,6 @@
 from DEPLOYER_EXEC_TASK import DEPLOYER_EXEC_TASK
 from LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 class DEPLOYER_EXEC_INPUT(DEPLOYER_EXEC_TASK):
     

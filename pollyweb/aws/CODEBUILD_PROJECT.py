@@ -1,9 +1,9 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
 from CODEBUILD_BUILD import CODEBUILD_BUILD
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.STRUCT import STRUCT
 
 
 class CODEBUILD_PROJECT(AWS_RESOURCE_ITEM):

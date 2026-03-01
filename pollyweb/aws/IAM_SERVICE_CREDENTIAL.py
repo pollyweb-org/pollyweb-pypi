@@ -1,5 +1,5 @@
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
 
 
 class IAM_SERVICE_CREDENTIAL(PRINTABLE):

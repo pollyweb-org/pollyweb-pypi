@@ -6,8 +6,8 @@ from DEPLOYER_ARGS import DEPLOYER_ARGS
 from DEPLOYER_EXEC_DUMMY import DEPLOYER_EXEC_DUMMY
 from DEPLOYER_TASK import DEPLOYER_TASK
 from LOG import LOG
-from PW_UTILS.TESTS import TESTS
-from PW_UTILS.UTILS import UTILS
+from utils.TESTS import TESTS
+from utils.UTILS import UTILS
 
 class DEPLOYER_TESTS():
 

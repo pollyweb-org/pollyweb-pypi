@@ -1,16 +1,16 @@
 
-from PW_UTILS.FILE import FILE
+from pollyweb.utils.FILE import FILE
 from IAM_SERVICE_CREDENTIAL import IAM_SERVICE_CREDENTIAL
 from IAM_POLICY import IAM_POLICY
 from IAM_ROLE import IAM_ROLE
 from IAM_USER import IAM_USER
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 
 # Initialize IAM client
 import boto3
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 iam_client = boto3.client('iam')
 
 

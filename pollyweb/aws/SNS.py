@@ -2,9 +2,9 @@
 
 
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from SNS_TOPIC import SNS_TOPIC
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 import boto3
 sns = boto3.client("sns")

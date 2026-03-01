@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from PW_UTILS.PYTHON_METHOD import PYTHON_METHOD
+from pollyweb.utils.PYTHON_METHOD import PYTHON_METHOD
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM_TYPE
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 from abc import ABC, abstractmethod
 from typing import List, TypeVar, Generic
 
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 
 
 
@@ -41,7 +41,7 @@ class AWS_RESOURCE_WRAP:
             res.AssertNotListed()
 
         # Get the Ensure() method.
-        from PW_UTILS.PYTHON_METHOD import PYTHON_METHOD
+        from pollyweb.utils.PYTHON_METHOD import PYTHON_METHOD
         ensure = PYTHON_METHOD(self.pool._Ensure)
 
         # Create a payload with the args, the name, and client.

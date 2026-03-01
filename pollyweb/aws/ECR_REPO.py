@@ -1,11 +1,11 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM
 from AWS_RESOURCE_POOL import AWS_RESOURCE_POOL
-from PW_UTILS.DIRECTORY import DIRECTORY
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.PYTHON_APP import PYTHON_APP
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.DIRECTORY import DIRECTORY
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.PYTHON_APP import PYTHON_APP
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 
 
 class ECR_REPO(
@@ -63,7 +63,7 @@ class ECR_REPO(
         source:DIRECTORY
     ):
         from AWS import AWS
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         
         # Create a CodeBuild project that builds a Docker project
         with AWS.CODECOMMIT().Ensure(

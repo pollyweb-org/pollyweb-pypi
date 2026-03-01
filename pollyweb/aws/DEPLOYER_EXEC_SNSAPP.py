@@ -1,5 +1,5 @@
 from DEPLOYER_EXEC_TASK import DEPLOYER_EXEC_TASK
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 from aws.AWS import AWS 
 
 class DEPLOYER_EXEC_SNSAPP(DEPLOYER_EXEC_TASK):

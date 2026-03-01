@@ -1,11 +1,11 @@
 # 📚 STS
 
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 
 import boto3
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 sts = None
 def get_sts():
     '''👉️ Returns the STS client.'''
@@ -23,7 +23,7 @@ class STS():
     
     @classmethod
     def RequireAccount(cls, number:str, name:str=None):
-        from PW_UTILS.TESTS import TESTS
+        from pollyweb.utils.TESTS import TESTS
         current_account = cls.GetAccountNumber()
         
         TESTS.AssertEqual(
@@ -36,7 +36,7 @@ class STS():
 
     @classmethod
     def EnsureAlias(cls, alias:str):
-        from PW_UTILS.TESTS import TESTS
+        from pollyweb.utils.TESTS import TESTS
         current_account = cls.GetAccountAlias()
         
         TESTS.AssertEqual(
@@ -91,7 +91,7 @@ class STS():
         
         # Not found!
         # Try to get the account alias from the account ID on Isengard
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         details = UTILS.OS().Execute(['isengardcli', 'cat', number])
         struct = UTILS.FromYamlStruct(details)
         alias = struct.RequireStr('Email').replace('@amazon.com', '')
@@ -141,7 +141,7 @@ class STS():
         print(f' STS.IsengardLogin()')
         cmd = '/opt/homebrew/bin/isengardcli'
         cmds = [cmd, 'assume', alias, '--region', region, '--nocache']
-        from PW_UTILS.UTILS import UTILS
+        from pollyweb.utils.UTILS import UTILS
         str = UTILS.OS().ExecuteShellLess(cmds)
         print(' STS.IsengardLogin', str)
         

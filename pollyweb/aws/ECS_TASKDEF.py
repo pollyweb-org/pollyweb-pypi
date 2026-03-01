@@ -1,9 +1,9 @@
 
 from ECR_REPO import ECR_REPO
 from ECS_SERVICE import ECS_SERVICE
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 from VPC_NETWORK import VPC_NETWORK
 
 

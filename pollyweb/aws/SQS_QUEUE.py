@@ -1,10 +1,10 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM
 from AWS_RETRY import RetryWithBackoff
 from LAMBDA_FUNCTION_REAL import LAMBDA_FUNCTION_REAL
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
 from SNS_TOPIC import SNS_TOPIC
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 import json
 

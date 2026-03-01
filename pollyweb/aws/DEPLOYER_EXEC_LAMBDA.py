@@ -2,7 +2,7 @@ from DEPLOYER_EXEC_TASK import DEPLOYER_EXEC_TASK
 from aws.AWS import AWS
 from aws.AWS_RETRY import RetryWithBackoff
 from LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 class DEPLOYER_EXEC_LAMBDA(DEPLOYER_EXEC_TASK):
 

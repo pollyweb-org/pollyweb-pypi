@@ -2,8 +2,8 @@ from APIGW_RESTAPI import APIGW_RESTAPI
 from WAF_WACL import WAF_WACL   
 from ACM_CERTIFICATE import ACM_CERTIFICATE
 from CLOUDFRONT_DISTRIBUTION import CLOUDFRONT_DISTRIBUTION
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 
 
 # Initialize a CloudFront client

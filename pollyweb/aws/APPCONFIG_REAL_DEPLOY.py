@@ -5,8 +5,8 @@ import boto3
 
 from LAMBDA_FUNCTION import LAMBDA_FUNCTION
 from LAMBDA_FUNCTION_REAL import LAMBDA_FUNCTION_REAL
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 client = boto3.client('appconfig')
 
 class APPCONFIG_REAL_DEPLOY:

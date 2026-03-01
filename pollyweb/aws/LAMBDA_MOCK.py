@@ -1,6 +1,6 @@
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 from LAMBDA_BASE import LAMBDA_BASE
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 import json
 
 

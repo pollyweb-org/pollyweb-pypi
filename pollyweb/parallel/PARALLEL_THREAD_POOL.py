@@ -3,7 +3,7 @@ import threading
 
 from .PARALLEL_THREAD import  PARALLEL_THREAD
 
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 
 class PARALLEL_THREAD_POOL(pw.PRINTABLE, pw.STRUCT): 

@@ -1,6 +1,6 @@
 from AWS_RESOURCE_ITEM import AWS_RESOURCE_ITEM
-from PW_UTILS.LOG import LOG
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
 
 import boto3
 sns = boto3.client("sns")

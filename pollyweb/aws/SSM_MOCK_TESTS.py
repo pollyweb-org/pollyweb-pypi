@@ -1,6 +1,6 @@
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 from SSM_MOCK import SSM_MOCK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class SSM_MOCK_TESTS(SSM_MOCK):

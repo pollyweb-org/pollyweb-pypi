@@ -1,5 +1,5 @@
 from AWS_TEST import AWS_TEST
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
 
 class EVENTBRIDGE_MOCK_MESSAGE(STRUCT):

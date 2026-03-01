@@ -1,11 +1,11 @@
 from AWS_MOCKS import AWS_MOCKS
 from NLWEB import NLWEB
-from PW_UTILS.TESTS import TESTS
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.TESTS import TESTS
+from pollyweb.utils.UTILS import UTILS
 from AWS import AWS
 from MSG import MSG
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class AWS_TEST(TESTS):

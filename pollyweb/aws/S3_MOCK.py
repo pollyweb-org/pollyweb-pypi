@@ -1,9 +1,9 @@
-from PW_UTILS.DIRECTORY import DIRECTORY
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.DIRECTORY import DIRECTORY
+from pollyweb.utils.LOG import LOG
 from S3_URL import S3_URL
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class S3_MOCK:

@@ -1,7 +1,7 @@
 
 from DEPLOYER_ARGS import DEPLOYER_ARGS
 from PW_PARALLEL.PARALLEL_THREAD_POOL import PARALLEL_THREAD_POOL
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 
 class DEPLOYER_BASE:

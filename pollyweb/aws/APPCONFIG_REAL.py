@@ -1,7 +1,7 @@
 # 📚 APPCONFIG
 
 from APPCONFIG_REAL_DEPLOY import APPCONFIG_REAL_DEPLOY
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 appconfig = boto3.client('appconfigdata')

@@ -1,4 +1,4 @@
-import PW_UTILS as pw
+import pollyweb.utils as pw
 
 class PARALLEL_THREAD(pw.PRINTABLE):
     '''👉️ Initializes a task to be run in parallel.'''

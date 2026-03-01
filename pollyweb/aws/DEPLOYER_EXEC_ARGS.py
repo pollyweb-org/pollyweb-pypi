@@ -4,9 +4,9 @@ from DEPLOYER_TASK import DEPLOYER_TASK
 
 from dataclasses import dataclass, asdict, field
 
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
 
 @dataclass
 class DEPLOYER_EXEC_ARGS(PRINTABLE):

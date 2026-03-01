@@ -1,7 +1,7 @@
 from AWS_TEST import AWS_TEST
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.STRUCT import STRUCT
 from LAMBDA_MOCK import LAMBDA_MOCK
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class LAMBDA_MOCK_TESTS(LAMBDA_MOCK, AWS_TEST):

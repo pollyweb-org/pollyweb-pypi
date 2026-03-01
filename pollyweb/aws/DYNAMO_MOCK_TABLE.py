@@ -1,10 +1,10 @@
 from NLWEB import NLWEB
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
 from DYNAMO_BASE import DYNAMO_BASE_TABLE
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 from boto3.dynamodb.conditions import Key, ConditionBase, AttributeNotExists, Attr
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 class DYNAMO_MOCK_TABLE(DYNAMO_BASE_TABLE):
     

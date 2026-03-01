@@ -1,7 +1,7 @@
 # 📚 DYNAMO
 
 from DYNAMO_BASE import DYNAMO_BASE_TABLE
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class DYNAMO_REAL_TABLE_DATA(DYNAMO_BASE_TABLE):

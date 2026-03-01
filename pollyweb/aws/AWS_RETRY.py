@@ -1,8 +1,8 @@
 
 import time
 from botocore.exceptions import ClientError, BotoCoreError
-from PW_UTILS.LOG import LOG
-from PW_UTILS.TESTS import ValidationException
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.TESTS import ValidationException
 from functools import wraps
 
 

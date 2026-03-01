@@ -1,5 +1,5 @@
-from PW_UTILS.LOG import LOG
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class SECRETS_MOCK:

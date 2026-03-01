@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 import boto3
 cognito_idp = boto3.client('cognito-idp')

@@ -2,7 +2,7 @@
 # FROM: https://dev.to/trisduong/tutorial-use-aws-eventbridge-and-appsync-for-real-time-notification-to-client-side-405a
 
 
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
    
 from base64 import b64encode, decode
 from datetime import datetime

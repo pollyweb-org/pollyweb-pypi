@@ -5,9 +5,9 @@ from ECR_REPO import ECR_REPO
 from ECS_SERVICE import ECS_SERVICE
 from ECS_TASK import ECS_TASK
 from ECS_TASKDEF import ECS_TASKDEF
-from PW_UTILS.LOG import LOG
-from PW_UTILS.PRINTABLE import PRINTABLE
-from PW_UTILS.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.PRINTABLE import PRINTABLE
+from pollyweb.utils.STRUCT import STRUCT
 
 
 import boto3

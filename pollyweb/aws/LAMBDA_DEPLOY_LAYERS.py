@@ -1,8 +1,8 @@
-from PW_UTILS.DIRECTORY import DIRECTORY
+from pollyweb.utils.DIRECTORY import DIRECTORY
 from LAMBDA_FUNCTION_DEPLOY import LAMBDA_FUNCTION_DEPLOY
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.ZIP import ZIP
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.ZIP import ZIP
 
 
 class LAMBDA_DEPLOY_LAYERS(LAMBDA_FUNCTION_DEPLOY):

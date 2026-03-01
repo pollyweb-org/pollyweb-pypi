@@ -1,5 +1,5 @@
-from PW_UTILS.LOG import LOG
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
+from pollyweb.utils.UTILS import UTILS
 
 
 class LAMBDA_BASE():
@@ -46,13 +46,13 @@ class LAMBDA_BASE():
 
         # Exit if it's a warm-up.
         if event == { "warm-up": "true" }:
-            from PW_UTILS.LOG import LOG
+            from pollyweb.utils.LOG import LOG
             LOG.Print('Warming up...')
             return True
         
         # Print the event if running in on AWS.
         if cls.IsLambda():
-            from PW_UTILS.LOG import LOG
+            from pollyweb.utils.LOG import LOG
             LOG.Print(event)
 
         # Not a warm-up, continue.

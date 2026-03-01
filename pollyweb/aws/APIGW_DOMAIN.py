@@ -3,7 +3,7 @@
 from ACM_CERTIFICATE import ACM_CERTIFICATE
 from APIGW_RESTAPI import APIGW_RESTAPI
 from AWS_RETRY import RetryWithBackoff
-from PW_UTILS.UTILS import UTILS
+from pollyweb.utils.UTILS import UTILS
 
 import boto3
 client = boto3.client('apigateway')

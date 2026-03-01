@@ -1,7 +1,7 @@
 from ACM_CERTIFICATE import ACM_CERTIFICATE
 from AWS import AWS
 from AWS_RESOURCE_TESTER import AWS_RESOURCE_TESTER
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.LOG import LOG
 
 
 class ACM_TESTS(AWS_RESOURCE_TESTER[ACM_CERTIFICATE]):

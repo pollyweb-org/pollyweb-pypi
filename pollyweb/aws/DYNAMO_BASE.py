@@ -10,9 +10,9 @@ from time import time
 
 from DYNAMO_BASE_TABLE import DYNAMO_BASE_TABLE
 from ITEM import ITEM, ITEM_TABLE
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.UTILS import UTILS
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.UTILS import UTILS
+from pollyweb.utils.LOG import LOG
 
 
 class DYNAMO_BASE(ITEM_TABLE):

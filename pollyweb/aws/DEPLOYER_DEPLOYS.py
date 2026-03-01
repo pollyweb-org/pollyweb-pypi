@@ -3,8 +3,8 @@ from DEPLOYER_DEPLOY import DEPLOYER_DEPLOY
 from DEPLOYER_TASK import DEPLOYER_TASK
 from aws.DYNAMO_MOCK import DYNAMO_MOCK
 from LOG import LOG
-from PW_UTILS.STRUCT import STRUCT   
-from PW_UTILS.UTILS import UTILS 
+from pollyweb.utils.STRUCT import STRUCT   
+from pollyweb.utils.UTILS import UTILS 
 from aws.AWS import AWS
 
 class DEPLOYER_DEPLOYS(STRUCT):

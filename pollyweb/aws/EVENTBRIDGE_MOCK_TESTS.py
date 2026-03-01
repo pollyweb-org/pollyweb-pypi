@@ -1,7 +1,7 @@
-from PW_UTILS.TESTS import TESTS
+from pollyweb.utils.TESTS import TESTS
 from EVENTBRIDGE_MOCK import EVENTBRIDGE_MOCK
-from PW_UTILS.STRUCT import STRUCT
-from PW_UTILS.LOG import LOG
+from pollyweb.utils.STRUCT import STRUCT
+from pollyweb.utils.LOG import LOG
 
 
 class EVENTBRIDGE_MOCK_TESTS(EVENTBRIDGE_MOCK):
