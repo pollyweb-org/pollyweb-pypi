@@ -1,37 +1,50 @@
 #!/usr/bin/env bash
 #
-# pre-push hook: block push when pip-audit finds known vulnerabilities
-# in the project's dependencies.
+# pre-push hook: run tests and block push when failures or known
+# dependency vulnerabilities are found.
 #
-# Runs pip-audit against pyproject.toml / setup.py in the repo root.
-# Exit code 0 = no issues, push proceeds.
-# Non-zero  = vulnerabilities found, push is blocked.
+# Runs pytest, then pip-audit against pyproject.toml / setup.py in the
+# repo root.
+# Exit code 0 = checks passed, push proceeds.
+# Non-zero  = test failures or vulnerabilities found, push is blocked.
 #
 # Install: ln -sf ../../scripts/pre-push .git/hooks/pre-push
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+PYTHON_BIN="python3"
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+    PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+elif ! command -v "$PYTHON_BIN" &>/dev/null; then
+    PYTHON_BIN="python"
+fi
+
+echo "==> Running test suite before push..."
+if ! "$PYTHON_BIN" -m pytest --version &>/dev/null; then
+    echo "ERROR: pytest is not installed in $PYTHON_BIN."
+    echo "Install it with:  python -m pip install pytest"
+    exit 1
+fi
+
+if ! (cd "$REPO_ROOT" && "$PYTHON_BIN" -m pytest); then
+    echo ""
+    echo "PUSH BLOCKED: Test suite failed."
+    echo "Fix failing tests before pushing."
+    exit 1
+fi
 
 echo "==> Running security audit before push..."
 
-# Locate pip-audit (pipx installs to ~/.local/bin which may not be on PATH)
-PIP_AUDIT="${HOME}/.local/bin/pip-audit"
-if ! command -v pip-audit &>/dev/null; then
-    if [ -x "$PIP_AUDIT" ]; then
-        : # use the full path below
-    else
-        echo "ERROR: pip-audit is not installed."
-        echo "Install it with:  pipx install pip-audit"
-        exit 1
-    fi
-else
-    PIP_AUDIT="pip-audit"
+if ! "$PYTHON_BIN" -m pip_audit --version &>/dev/null; then
+    echo "ERROR: pip-audit is not installed in $PYTHON_BIN."
+    echo "Install it with:  $PYTHON_BIN -m pip install pip-audit"
+    exit 1
 fi
 
 # Run pip-audit against the project
 if [ -f "$REPO_ROOT/pyproject.toml" ] || [ -f "$REPO_ROOT/setup.py" ]; then
-    if ! "$PIP_AUDIT" --strict --desc on -r <(cd "$REPO_ROOT" && python -c "
+    if ! "$PYTHON_BIN" -m pip_audit --strict --desc on -r <(cd "$REPO_ROOT" && "$PYTHON_BIN" -c "
 import configparser, ast, sys, tomllib, pathlib
 
 deps = []
