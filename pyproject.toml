@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pollyweb"
-version = "0.1.12"
+version = "1.0.0"
 description = "A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing."
 authors = [ { name = "jorgemf", email = "pollyweb@pollycore.net" } ]
 license = { text = "Apache-2.0" }
