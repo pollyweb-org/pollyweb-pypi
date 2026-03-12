@@ -17,6 +17,53 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 SCHEMA = "pollyweb.org/MSG:1.0"
 
 
+def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
+    """Fetch the Ed25519 public key from the DKIM DNS TXT record.
+
+    Queries ``{selector}._domainkey.pw.{domain}`` for a TXT record in the standard
+    DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``.
+
+    Raises ``MsgValidationError`` if:
+    - the DNS lookup fails,
+    - DNSSEC is not enabled / the AD flag is not set on the response, or
+    - no valid Ed25519 key is found in the TXT records.
+    """
+    import dns.flags
+    import dns.resolver
+
+    dns_name = f"{selector}._domainkey.pw.{domain}"
+    try:
+        answers = dns.resolver.resolve(dns_name, "TXT")
+    except Exception as exc:
+        raise MsgValidationError(f"DKIM lookup failed for {dns_name}: {exc}") from exc
+
+    if not (answers.response.flags & dns.flags.AD):
+        raise MsgValidationError(
+            f"DNSSEC not enabled for {dns_name}: cannot trust DKIM public key"
+        )
+
+    for rdata in answers:
+        txt = b"".join(rdata.strings).decode("utf-8")
+        params: Dict[str, str] = {}
+        for part in txt.split(";"):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                params[k.strip()] = v.strip()
+        p = params.get("p", "")
+        if not p:
+            continue
+        try:
+            raw = base64.b64decode(p)
+            return Ed25519PublicKey.from_public_bytes(raw)
+        except Exception as exc:
+            raise MsgValidationError(
+                f"Invalid Ed25519 key in DKIM TXT at {dns_name}: {exc}"
+            ) from exc
+
+    raise MsgValidationError(f"No Ed25519 public key found in DKIM TXT at {dns_name}")
+
+
 def _utc_now() -> str:
     ts = datetime.now(timezone.utc)
     return ts.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ts.microsecond // 1000:03d}Z"
@@ -64,8 +111,13 @@ class Msg:
         sig_b64 = base64.b64encode(private_key.sign(canonical)).decode("ascii")
         return replace(self, Hash=hash_hex, Signature=sig_b64)
 
-    def validate(self, public_key: Ed25519PublicKey) -> bool:
-        """Validate structure and signature. Raises MsgValidationError on failure."""
+    def validate(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
+        """Validate structure and signature. Raises MsgValidationError on failure.
+
+        If *public_key* is omitted, the key is fetched from DNS using the DKIM
+        selector and the From domain:  ``{DKIM}._domainkey.{From}``  (TXT record,
+        DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``).
+        """
         # -- schema --
         if self.Schema != SCHEMA:
             raise MsgValidationError(f"Unsupported schema: {self.Schema}")
@@ -87,6 +139,10 @@ class Msg:
             raise MsgValidationError("Missing Hash")
         if self.Signature is None:
             raise MsgValidationError("Missing Signature")
+
+        # -- resolve public key from DNS when not supplied --
+        if public_key is None:
+            public_key = _resolve_dkim_public_key(self.From, self.DKIM)
 
         # -- recompute hash --
         canonical = self.canonical()

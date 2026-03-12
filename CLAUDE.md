@@ -19,23 +19,24 @@ Python library (`import pollyweb`) implementing the PollyWeb protocol: a trust f
 
 ## Public API
 ```python
-from pollyweb import Domain, Msg, MsgValidationError
+import pollyweb as pw
 
 # Recommended: build a message and sign it via a Domain
-msg = Msg(To="receiver.dom", Subject="Hello@Host", Body={...})
-domain = Domain(Name="sender.dom", PrivateKey=private_key, DKIM="pk1")
+keypair = pw.KeyPair()
+msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={...})
+domain = pw.Domain(Name="sender.dom", KeyPair=keypair, DKIM="pk1")
 signed = domain.sign(msg)        # sets From, DKIM, Hash, Signature → new Msg
 
 # Direct signing (when you already have From/DKIM on the Msg)
-msg = Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={...})
+msg = pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={...})
 signed = msg.sign(private_key)   # Ed25519PrivateKey → new Msg
 
 # Validate
-signed.validate(public_key)      # Ed25519PublicKey → True or raises MsgValidationError
+signed.validate(public_key)      # Ed25519PublicKey → True or raises pw.MsgValidationError
 
 # Serialise
 d   = signed.to_dict()           # wire-format dict
-msg = Msg.from_dict(d)           # round-trip
+msg = pw.Msg.from_dict(d)        # round-trip
 ```
 
 ## Key design decisions

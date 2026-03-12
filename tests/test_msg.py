@@ -1,14 +1,41 @@
 """Tests for pollyweb.msg."""
 
+import base64
 import json
 import uuid
 from dataclasses import replace
+from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from pollyweb import Domain, Msg, MsgValidationError
+import pollyweb as pw
 from pollyweb.msg import SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# DNS mock helpers
+# ---------------------------------------------------------------------------
+
+def _dkim_dns_answer(public_key, *, ad_flag: bool = True):
+    """Return a fake dns.resolver.Answer for the given Ed25519PublicKey."""
+    import dns.flags
+
+    raw = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
+    p = base64.b64encode(raw).decode("ascii")
+    txt_bytes = f"v=DKIM1; k=ed25519; p={p}".encode("utf-8")
+
+    rdata = MagicMock()
+    rdata.strings = [txt_bytes]
+
+    response = MagicMock()
+    response.flags = dns.flags.AD if ad_flag else 0
+
+    answer = MagicMock()
+    answer.__iter__ = lambda self: iter([rdata])
+    answer.response = response
+    return answer
 
 
 # ---------------------------------------------------------------------------
@@ -16,18 +43,23 @@ from pollyweb.msg import SCHEMA
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def private_key():
-    return Ed25519PrivateKey.generate()
+def keypair():
+    return pw.KeyPair()
 
 
 @pytest.fixture()
-def public_key(private_key):
-    return private_key.public_key()
+def private_key(keypair):
+    return keypair.PrivateKey
+
+
+@pytest.fixture()
+def public_key(keypair):
+    return keypair.PublicKey
 
 
 @pytest.fixture()
 def msg():
-    return Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={"greeting": "hi"})
+    return pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={"greeting": "hi"})
 
 
 @pytest.fixture()
@@ -59,12 +91,12 @@ class TestMsg:
         assert "T" in msg.Timestamp
 
     def test_each_instance_gets_unique_correlation(self):
-        e1 = Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
-        e2 = Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
+        e1 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
+        e2 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
         assert e1.Correlation != e2.Correlation
 
     def test_explicit_correlation_used(self):
-        env = Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={}, Correlation="my-id")
+        env = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={}, Correlation="my-id")
         assert env.Correlation == "my-id"
 
     def test_unsigned_by_default(self, msg):
@@ -72,15 +104,15 @@ class TestMsg:
         assert msg.Signature is None
 
     def test_from_defaults_to_empty(self):
-        msg = Msg(To="b.dom", Subject="Ping")
+        msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""
 
     def test_dkim_defaults_to_empty(self):
-        msg = Msg(To="b.dom", Subject="Ping")
+        msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.DKIM == ""
 
     def test_body_defaults_to_empty_dict(self):
-        msg = Msg(To="b.dom", Subject="Ping")
+        msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.Body == {}
 
 
@@ -133,35 +165,85 @@ class TestValidate:
         assert signed.validate(public_key) is True
 
     def test_tampered_body(self, signed, public_key):
-        with pytest.raises(MsgValidationError, match="Hash mismatch"):
+        with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
             replace(signed, Body={"greeting": "bye"}).validate(public_key)
 
     def test_tampered_header(self, signed, public_key):
-        with pytest.raises(MsgValidationError, match="Hash mismatch"):
+        with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
             replace(signed, Subject="Evil@Host").validate(public_key)
 
     def test_missing_hash(self, signed, public_key):
-        with pytest.raises(MsgValidationError, match="Missing Hash"):
+        with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
             replace(signed, Hash=None).validate(public_key)
 
     def test_missing_signature(self, signed, public_key):
-        with pytest.raises(MsgValidationError, match="Missing Signature"):
+        with pytest.raises(pw.MsgValidationError, match="Missing Signature"):
             replace(signed, Signature=None).validate(public_key)
 
     def test_wrong_public_key(self, signed):
-        with pytest.raises(MsgValidationError, match="Invalid signature"):
+        with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
             signed.validate(Ed25519PrivateKey.generate().public_key())
 
     def test_unsupported_schema(self, signed, public_key):
-        with pytest.raises(MsgValidationError, match="Unsupported schema"):
+        with pytest.raises(pw.MsgValidationError, match="Unsupported schema"):
             replace(signed, Schema="pollyweb.org/MSG:99.0").validate(public_key)
 
     def test_missing_required_field(self, private_key, public_key):
-        signed_env = Msg(
+        signed_env = pw.Msg(
             From="a.dom", To="b.dom", Subject="", DKIM="pk1", Body={},
         ).sign(private_key)
-        with pytest.raises(MsgValidationError, match="Missing Subject"):
+        with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             signed_env.validate(public_key)
+
+
+# ---------------------------------------------------------------------------
+# Msg.validate — DNS key resolution
+# ---------------------------------------------------------------------------
+
+class TestValidateDNS:
+    def test_resolves_key_from_dns_when_not_supplied(self, signed, public_key):
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
+            assert signed.validate() is True
+
+    def test_dns_lookup_failure_raises(self, signed):
+        import dns.resolver as _r
+        with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
+            with pytest.raises(pw.MsgValidationError, match="DKIM lookup failed"):
+                signed.validate()
+
+    def test_no_dnssec_raises(self, signed, public_key):
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key, ad_flag=False)):
+            with pytest.raises(pw.MsgValidationError, match="DNSSEC not enabled"):
+                signed.validate()
+
+    def test_explicit_key_skips_dns(self, signed, public_key):
+        # DNS must not be called when a key is supplied explicitly
+        with patch("dns.resolver.resolve", side_effect=AssertionError("DNS should not be called")):
+            assert signed.validate(public_key) is True
+
+    def test_wrong_key_in_dns_fails(self, signed):
+        wrong_key = pw.KeyPair().PublicKey
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(wrong_key)):
+            with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
+                signed.validate()
+
+    def test_dkim_txt_with_multiple_semicolon_fields(self, signed, public_key):
+        """TXT record with extra fields (e.g. t=s) is parsed correctly."""
+        import dns.flags
+        raw = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
+        p = base64.b64encode(raw).decode("ascii")
+        txt_bytes = f"v=DKIM1; k=ed25519; t=s; p={p}".encode("utf-8")
+
+        rdata = MagicMock()
+        rdata.strings = [txt_bytes]
+        response = MagicMock()
+        response.flags = dns.flags.AD
+        answer = MagicMock()
+        answer.__iter__ = lambda self: iter([rdata])
+        answer.response = response
+
+        with patch("dns.resolver.resolve", return_value=answer):
+            assert signed.validate() is True
 
 
 # ---------------------------------------------------------------------------
@@ -170,10 +252,10 @@ class TestValidate:
 
 class TestSerialization:
     def test_round_trip_unsigned(self, msg):
-        assert Msg.from_dict(msg.to_dict()) == msg
+        assert pw.Msg.from_dict(msg.to_dict()) == msg
 
     def test_round_trip_signed(self, signed):
-        assert Msg.from_dict(signed.to_dict()) == signed
+        assert pw.Msg.from_dict(signed.to_dict()) == signed
 
     def test_dict_uses_spec_field_names(self, msg):
         d = msg.to_dict()
@@ -189,7 +271,65 @@ class TestSerialization:
         assert "Signature" in d
 
     def test_validate_after_round_trip(self, signed, public_key):
-        assert Msg.from_dict(signed.to_dict()).validate(public_key) is True
+        assert pw.Msg.from_dict(signed.to_dict()).validate(public_key) is True
+
+
+# ---------------------------------------------------------------------------
+# KeyPair
+# ---------------------------------------------------------------------------
+
+class TestKeyPair:
+    def test_generates_keys_on_construction(self):
+        pair = pw.KeyPair()
+        assert pair.PrivateKey is not None
+        assert pair.PublicKey is not None
+
+    def test_public_key_matches_private(self):
+        pair = pw.KeyPair()
+        # sign and verify to confirm the pair is consistent
+        data = b"test"
+        sig = pair.PrivateKey.sign(data)
+        pair.PublicKey.verify(sig, data)  # raises if wrong
+
+    def test_each_instance_unique(self):
+        assert pw.KeyPair().PrivateKey != pw.KeyPair().PrivateKey
+
+    def test_dkim_default_version(self):
+        pair = pw.KeyPair()
+        txt = pair.dkim()
+        assert txt.startswith("v=DKIM1; k=ed25519; p=")
+
+    def test_dkim_custom_version(self):
+        pair = pw.KeyPair()
+        txt = pair.dkim("DKIM2")
+        assert txt.startswith("v=DKIM2; k=ed25519; p=")
+
+    def test_dkim_public_key_roundtrip(self):
+        """The p= value in the TXT record must decode back to the same public key."""
+        import dns.flags
+        pair = pw.KeyPair()
+        txt = pair.dkim()
+        domain = pw.Domain(Name="sender.dom", KeyPair=pair, DKIM="pk1")
+        signed = domain.sign(pw.Msg(To="receiver.dom", Subject="Hello@Host"))
+
+        txt_bytes = txt.encode("utf-8")
+        rdata = MagicMock()
+        rdata.strings = [txt_bytes]
+        response = MagicMock()
+        response.flags = dns.flags.AD
+        answer = MagicMock()
+        answer.__iter__ = lambda self: iter([rdata])
+        answer.response = response
+
+        with patch("dns.resolver.resolve", return_value=answer):
+            assert signed.validate() is True
+
+    def test_domain_with_keypair(self):
+        pair = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pk1")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
+        signed = domain.sign(msg)
+        assert signed.validate(pair.PublicKey) is True
 
 
 # ---------------------------------------------------------------------------
@@ -198,41 +338,32 @@ class TestSerialization:
 
 class TestDomain:
     @pytest.fixture()
-    def domain(self, private_key):
-        return Domain(Name="origin.dom", PrivateKey=private_key, DKIM="pk1")
+    def domain(self, keypair):
+        return pw.Domain(Name="origin.dom", KeyPair=keypair, DKIM="pk1")
 
     def test_sign_sets_from(self, domain):
-        msg = Msg(To="recipient.dom", Subject="Hello@Host")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.From == "origin.dom"
 
     def test_sign_sets_dkim(self, domain):
-        msg = Msg(To="recipient.dom", Subject="Hello@Host")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.DKIM == "pk1"
 
     def test_sign_produces_valid_signature(self, domain, public_key):
-        msg = Msg(To="recipient.dom", Subject="Hello@Host")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.validate(public_key) is True
 
     def test_sign_preserves_to_and_subject(self, domain):
-        msg = Msg(To="recipient.dom", Subject="Hello@Host")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.To == "recipient.dom"
         assert signed.Subject == "Hello@Host"
 
     def test_sign_does_not_mutate_original(self, domain):
-        msg = Msg(To="recipient.dom", Subject="Hello@Host")
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         domain.sign(msg)
         assert msg.From == ""
         assert msg.Hash is None
-
-    def test_domain_with_pem_key(self, private_key, public_key):
-        from cryptography.hazmat.primitives.serialization import (
-            Encoding, NoEncryption, PrivateFormat,
-        )
-        pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
-        domain = Domain(Name="origin.dom", PrivateKey=pem, DKIM="pk1")
-        signed = domain.sign(Msg(To="recipient.dom", Subject="Hello@Host"))
-        assert signed.validate(public_key) is True
