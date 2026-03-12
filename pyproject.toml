@@ -16,10 +16,6 @@ dependencies = [
     "PyYAML>=6.0"
 ]
 
-[project.scripts]
-pollyweb-keys = "pollyweb.demo.keys:main"
-pollyweb-setup = "pollyweb.demo.setup:main"
-
 [project.urls]
 "Website" = "https://www.pollyweb.org"
 
@@ -27,24 +23,4 @@ pollyweb-setup = "pollyweb.demo.setup:main"
 include = ["pollyweb*"]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "tests",
-    "pollyweb",
-]
-
-python_files = [
-    "test_*.py",
-    "*_test.py",
-    "test.py",
-    "*_TESTS.py",
-]
-
-python_classes = [
-    "Test*",
-    "*_TESTS",
-]
-
-python_functions = [
-    "test_*",
-    "Test*",
-]
+testpaths = ["tests", "pollyweb"]
