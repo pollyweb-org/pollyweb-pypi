@@ -91,15 +91,17 @@ class LOG(LOG_PARALLEL, LOG_EXCLUDES):
         '''👉️ Exists if the script is not running in the root folder.'''
         from .DIRECTORY import DIRECTORY
         dir = DIRECTORY.GetCurrent()
-        is_pkg_repo = dir.ContainsDirectory('src') and \
-        dir.ContainsFile('pyproject.toml')
+        is_pkg_repo = dir.ContainsFile('pyproject.toml') and (
+            dir.ContainsDirectory('src') or
+            dir.ContainsDirectory('pollyweb')
+        )
         is_pollyweb_repo = (
             dir.ContainsDirectory('python') and
             (dir.ContainsDirectory('tests') or dir.ContainsDirectory('layers'))
         )
         if not (is_pkg_repo or is_pollyweb_repo):
             print('🙀 Run this on the base directory of the project.')
-            print('🙀 It is missing the src folder and the pyproject.toml file.')
+            print('🙀 It is missing pyproject.toml and a src/ or pollyweb/ directory.')
             exit(1)
 
 

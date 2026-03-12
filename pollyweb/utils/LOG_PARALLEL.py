@@ -305,6 +305,9 @@ class LOG_PARALLEL:
                 Useful to keep the paths valid in the stack trace dump.
         '''
 
+        import os
+        import shutil
+
         from .UTILS import UTILS
 
         # Get the class name.
@@ -341,6 +344,14 @@ class LOG_PARALLEL:
 
         # Move the child logs to the new dir.
         for key, obj in children.items():
+            target = os.path.join(dir.GetPath(), obj.GetName())
+            if os.path.isdir(target):
+                shutil.rmtree(target, ignore_errors=True)
+            elif os.path.isfile(target):
+                try:
+                    os.remove(target)
+                except FileNotFoundError:
+                    pass
             obj.MoveTo(dir)
 
         # Remove the directory if empty (no testes executed).

@@ -4,3 +4,4 @@ dist/
 *.egg-info/
 *.pem
 /tmp/
+__dumps__

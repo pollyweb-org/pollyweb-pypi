@@ -16,6 +16,7 @@ class PARALLEL_THREAD_TESTS_1(PARALLEL_TEST):
     
 
     def TestExecution(self):
+        import shutil
         
         self.total = 0
 
@@ -35,6 +36,7 @@ class PARALLEL_THREAD_TESTS_1(PARALLEL_TEST):
         pw.TESTS.AssertEqual(len(ret.Keys()), 1)
         pw.TESTS.AssertEqual(ret.RequireAtt('Handler'), 999)
         
+        shutil.rmtree('__dumps__/PARALLEL/🟢 PARALLEL_THREAD_TESTS_1.TestExecution', ignore_errors=True)
         dir = pw.LOG.PARALLEL().SetMethodDone()
 
         self.AssertDirLogFiles(

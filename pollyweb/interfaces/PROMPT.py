@@ -96,7 +96,7 @@ class PROMPT(STRUCT):
             if isinstance(options_parsed, str):
                 item["Options"] = options_parsed
             elif isinstance(options_parsed, list):
-                item["Options"] = ','.join(map(str, options_parsed))
+                item["Options"] = [str(x) for x in options_parsed]
         
         ##LOG.Print(f'PROMPT.New(): item={item})')
 
@@ -112,7 +112,7 @@ class PROMPT(STRUCT):
         '''👉 https://quip.com/CDrjAxNKwLpI/-Prompt#temp:C:KSc184ca019e23d408393b0b591a'''
         return self.RequireStr('Format')
     
-    def RequirePromptID(self, set: str = '') -> str:
+    def RequirePromptID(self, set: str = None) -> str:
         return self.RequireUUID('PromptID', set=set)
 
     def RequireMessage(self) -> str:

@@ -54,6 +54,11 @@ class UTILS_TYPES(UTILS_OBJECTS):
             if require == True:
                 cls.Require(val)
 
+        elif val == '':
+            if require == True:
+                cls.Require(val)
+            return
+
         elif cls.IsUUID(val) != True:
             LOG.RaiseValidationException(
                 f'📦 MatchUUID: Value should be a UUID, but found=({val}).')
