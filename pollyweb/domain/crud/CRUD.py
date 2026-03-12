@@ -1,0 +1,6 @@
+from CRUD_ANSWERS import CRUD_ANSWERS
+from CRUD_BASE import CRUD_BASE
+
+
+class CRUD(CRUD_ANSWERS, CRUD_BASE):
+    pass
