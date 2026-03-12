@@ -9,20 +9,25 @@ Python library (`import pollyweb`) implementing the PollyWeb protocol: a trust f
 - `LICENSE` — Apache 2.0
 - `.githooks/pre-push` — runs pytest + pip-audit before push
 - `docs/msg.md` — developer documentation for the `Msg` class
+- `docs/domain.md` — developer documentation for the `Domain` class
 
 ## Source layout
 - `pollyweb/msg.py` — `Msg` dataclass: the PollyWeb message envelope (`pollyweb.org/MSG:1.0`)
-- `pollyweb/__init__.py` — public exports: `Msg`, `MsgValidationError`
-- `tests/test_msg.py` — full test suite for `Msg`
+- `pollyweb/domain.py` — `Domain` dataclass: named signing authority
+- `pollyweb/__init__.py` — public exports: `Domain`, `Msg`, `MsgValidationError`
+- `tests/test_msg.py` — full test suite for `Msg` and `Domain`
 
 ## Public API
 ```python
-from pollyweb import Msg, MsgValidationError
+from pollyweb import Domain, Msg, MsgValidationError
 
-# Create
+# Recommended: build a message and sign it via a Domain
+msg = Msg(To="receiver.dom", Subject="Hello@Host", Body={...})
+domain = Domain(Name="sender.dom", PrivateKey=private_key, DKIM="pk1")
+signed = domain.sign(msg)        # sets From, DKIM, Hash, Signature → new Msg
+
+# Direct signing (when you already have From/DKIM on the Msg)
 msg = Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={...})
-
-# Sign
 signed = msg.sign(private_key)   # Ed25519PrivateKey → new Msg
 
 # Validate
@@ -35,6 +40,7 @@ msg = Msg.from_dict(d)           # round-trip
 
 ## Key design decisions
 - **`Msg` is a frozen dataclass** — immutable; `sign()` returns a new instance
+- **`Domain` fills `From` and `DKIM`** — `Msg.From`, `Msg.DKIM`, `Msg.Body` default to `""`, `""`, `{}` so a `Msg` can be constructed with just `To` and `Subject`; `Domain.sign()` completes the sender fields before signing
 - **Ed25519** (RFC 8032 / RFC 8463) for signatures — not RSA/PKCS1v15 (deprecated in FIPS 186-5)
 - **SHA-256** hash of the canonical form stored in `Hash` field
 - **JCS canonicalisation** (RFC 8785) — sorted keys, no whitespace, before hashing/signing
