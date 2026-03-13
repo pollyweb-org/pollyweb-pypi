@@ -19,6 +19,7 @@ dependencies = [
 
 [project.urls]
 "Website" = "https://www.pollyweb.org"
+"Documentation" = "https://docs.pollyweb.org"
 
 [tool.setuptools.packages.find]
 include = ["pollyweb*"]
