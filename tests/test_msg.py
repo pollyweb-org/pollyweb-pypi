@@ -300,6 +300,41 @@ class TestSerialization:
         assert pw.Msg.from_dict(signed.to_dict()).validate(public_key) is True
 
 
+class TestParse:
+    def test_parse_msg_returns_same_instance(self, msg):
+        assert pw.Msg.parse(msg) is msg
+
+    def test_parse_dict(self, msg):
+        assert pw.Msg.parse(msg.to_dict()) == msg
+
+    def test_parse_json_string(self, msg):
+        raw = json.dumps(msg.to_dict())
+        assert pw.Msg.parse(raw) == msg
+
+    def test_parse_yaml_string(self, msg):
+        raw = """
+Header:
+  From: sender.dom
+  To: receiver.dom
+  Subject: Hello@Host
+  Correlation: %s
+  Timestamp: %s
+  Selector: pw1
+  Schema: %s
+Body:
+  greeting: hi
+""" % (msg.Correlation, msg.Timestamp, msg.Schema)
+        assert pw.Msg.parse(raw) == msg
+
+    def test_parse_bytes(self, msg):
+        raw = json.dumps(msg.to_dict()).encode("utf-8")
+        assert pw.Msg.parse(raw) == msg
+
+    def test_parse_rejects_non_mapping_payload(self):
+        with pytest.raises(TypeError, match="mapping"):
+            pw.Msg.parse("[]")
+
+
 # ---------------------------------------------------------------------------
 # KeyPair
 # ---------------------------------------------------------------------------

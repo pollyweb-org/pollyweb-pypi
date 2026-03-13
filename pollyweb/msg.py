@@ -5,14 +5,15 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import date, datetime, timezone
+from typing import Any, Dict, Mapping, Optional, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
+import yaml
 
 SCHEMA = "pollyweb.org/MSG:1.0"
 
@@ -67,6 +68,23 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
 def _utc_now() -> str:
     ts = datetime.now(timezone.utc)
     return ts.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ts.microsecond // 1000:03d}Z"
+
+
+def _normalize_wire_value(value: Any) -> Any:
+    """Convert YAML-native scalars into JSON-wire-compatible values."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
+        return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{value.microsecond // 1000:03d}Z"
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _normalize_wire_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_wire_value(item) for item in value]
+    return value
 
 
 class MsgValidationError(Exception):
@@ -180,6 +198,32 @@ class Msg:
         if self.Signature is not None:
             d["Signature"] = self.Signature
         return d
+
+    @classmethod
+    def parse(cls, value: Union["Msg", Mapping[str, Any], str, bytes]) -> "Msg":
+        """Parse a Msg from another Msg, a wire-format dict, or JSON/YAML text."""
+        if isinstance(value, cls):
+            return value
+
+        if isinstance(value, Mapping):
+            return cls.from_dict(_normalize_wire_value(dict(value)))
+
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+
+        if isinstance(value, str):
+            try:
+                loaded = json.loads(value)
+            except json.JSONDecodeError:
+                loaded = yaml.safe_load(value)
+
+            if isinstance(loaded, cls):
+                return loaded
+            if isinstance(loaded, Mapping):
+                return cls.from_dict(_normalize_wire_value(dict(loaded)))
+            raise TypeError("Parsed message must be a mapping")
+
+        raise TypeError("Msg.parse() expects a Msg, mapping, str, or bytes")
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Msg":
