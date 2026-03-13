@@ -447,13 +447,43 @@ Body:
 """ % (msg.Correlation, msg.Timestamp, msg.Schema)
         assert pw.Msg.parse(raw) == msg
 
+    def test_parse_eventbridge_dict_with_detail_mapping(self, msg):
+        event = {
+            "version": "0",
+            "id": "event-1",
+            "detail-type": "PollyWeb Message",
+            "source": "pollyweb.test",
+            "detail": msg.to_dict(),
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_eventbridge_json_with_detail_json_string(self, msg):
+        raw = json.dumps(
+            {
+                "version": "0",
+                "id": "event-1",
+                "detail-type": "PollyWeb Message",
+                "source": "pollyweb.test",
+                "detail": json.dumps(msg.to_dict()),
+            }
+        )
+        assert pw.Msg.parse(raw) == msg
+
     def test_parse_bytes(self, msg):
         raw = json.dumps(msg.to_dict()).encode("utf-8")
         assert pw.Msg.parse(raw) == msg
 
+    def test_load_alias(self, msg):
+        raw = json.dumps(msg.to_dict())
+        assert pw.Msg.load(raw) == msg
+
     def test_parse_rejects_non_mapping_payload(self):
         with pytest.raises(TypeError, match="mapping"):
             pw.Msg.parse("[]")
+
+    def test_load_rejects_non_mapping_payload(self):
+        with pytest.raises(TypeError, match="mapping"):
+            pw.Msg.load("[]")
 
 
 # ---------------------------------------------------------------------------

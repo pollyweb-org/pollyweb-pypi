@@ -93,6 +93,33 @@ def _normalize_wire_value(value: Any) -> Any:
     return value
 
 
+def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a PollyWeb wire mapping, unwrapping known transport envelopes."""
+    normalized = _normalize_wire_value(dict(value))
+    if "Header" in normalized:
+        return normalized
+
+    detail = normalized.get("detail")
+    if detail is None:
+        return normalized
+
+    if isinstance(detail, str):
+        try:
+            detail = json.loads(detail)
+        except json.JSONDecodeError:
+            try:
+                detail = yaml.safe_load(detail)
+            except yaml.YAMLError:
+                return normalized
+
+    if isinstance(detail, Mapping):
+        detail_mapping = _normalize_wire_value(dict(detail))
+        if "Header" in detail_mapping:
+            return detail_mapping
+
+    return normalized
+
+
 class MsgValidationError(Exception):
     """Raised when msg validation fails."""
 
@@ -247,7 +274,7 @@ class Msg:
             return value
 
         if isinstance(value, Mapping):
-            return cls.from_dict(_normalize_wire_value(dict(value)))
+            return cls.from_dict(_extract_msg_mapping(value))
 
         if isinstance(value, bytes):
             value = value.decode("utf-8")
@@ -261,10 +288,15 @@ class Msg:
             if isinstance(loaded, cls):
                 return loaded
             if isinstance(loaded, Mapping):
-                return cls.from_dict(_normalize_wire_value(dict(loaded)))
+                return cls.from_dict(_extract_msg_mapping(loaded))
             raise TypeError("Parsed message must be a mapping")
 
         raise TypeError("Msg.parse() expects a Msg, mapping, str, or bytes")
+
+    @classmethod
+    def load(cls, value: Union["Msg", Mapping[str, Any], str, bytes]) -> "Msg":
+        """Backward-compatible alias for :meth:`parse`."""
+        return cls.parse(value)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Msg":

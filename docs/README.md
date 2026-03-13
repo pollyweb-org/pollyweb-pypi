@@ -35,6 +35,7 @@ Reference documentation for the `pollyweb` Python package.
 - [`msg.verify()`](msg/verify.md)
 - [`msg.to_dict()`](msg/to_dict.md)
 - [`Msg.parse()`](msg/parse.md)
+- [`Msg.load()`](msg/load.md)
 - [`Msg.from_dict()`](msg/from_dict.md)
 
 ## Quick start
