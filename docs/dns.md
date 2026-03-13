@@ -10,28 +10,27 @@ published DKIM records are compliant without holding the private signing key.
 
 ```python
 import pollyweb as pw
+import pandas as pd
 
 dns = pw.DNS(Name="sender.dom")
-
 report = dns.check()
-report["summary"]["compliant"]
-# True or False
+table = pd.DataFrame(report["table"])
+
+print(table.to_markdown(index=False))
+```
+
+Example output:
+
+```text
+| selector   | status   | compliant   | record                         | message   |
+|:-----------|:---------|:------------|:-------------------------------|:----------|
+| pw1        | ok       | True        | v=DKIM1; k=ed25519; p=...      |           |
 ```
 
 To validate one selector only:
 
 ```python
 report = dns.check("pw1")
-```
-
-To render the result as a table with pandas:
-
-```python
-import pandas as pd
-
-report = dns.check()
-table = pd.DataFrame(report["table"])
-print(table.to_markdown(index=False))
 ```
 
 ## Fields
@@ -93,6 +92,35 @@ can be rendered directly by pandas, Rich, tabulate, or similar tools.
 | `record` | The DKIM TXT record text when available. |
 | `message` | Error or informational detail for non-`ok` rows. |
 
+### Render as a table
+
+With pandas:
+
+```python
+import pandas as pd
+
+report = dns.check()
+df = pd.DataFrame(report["table"])
+print(df.to_markdown(index=False))
+```
+
+Without pandas:
+
+```python
+rows = report["table"]
+for row in rows:
+    print(f'{row["selector"]}\t{row["status"]}\t{row["compliant"]}\t{row["message"] or ""}')
+```
+
+Example multi-row output:
+
+```text
+| selector   | status   | compliant   | record                         | message                      |
+|:-----------|:---------|:------------|:-------------------------------|:-----------------------------|
+| pw1        | ok       | True        | v=DKIM1; k=ed25519; p=...      |                              |
+| pw2        | error    | False       | v=DKIM1; k=ed25519; p=...      | Public key reused in DKIM... |
+```
+
 ### Result statuses
 
 | Status | Meaning |
@@ -101,91 +129,13 @@ can be rendered directly by pandas, Rich, tabulate, or similar tools.
 | `missing` | No TXT record was found for the requested selector, or no PollyWeb selectors exist. |
 | `error` | A record exists but is not compliant, for example DNSSEC is missing or a key is reused. |
 
-### Pandas example
+### Summary fields
 
-```python
-import pandas as pd
-import pollyweb as pw
-
-dns = pw.DNS(Name="sender.dom")
-report = dns.check()
-
-df = pd.DataFrame(report["table"])
-print(df)
-```
-
-Example output:
-
-```text
-  selector status  compliant                           record message
-0      pw1     ok       True  v=DKIM1; k=ed25519; p=...    None
-1      pw2  error      False  v=DKIM1; k=ed25519; p=...  Public key reused ...
-```
-
-### Examples
-
-No records published:
-
-```python
-{
-    "summary": {
-        "domain": "sender.dom",
-        "selector": None,
-        "compliant": False,
-    },
-    "table": [
-        {
-            "selector": None,
-            "status": "missing",
-            "compliant": False,
-            "record": None,
-            "message": "No PollyWeb DKIM selectors found",
-        }
-    ],
-}
-```
-
-Single valid selector:
-
-```python
-{
-    "summary": {
-        "domain": "sender.dom",
-        "selector": "pw1",
-        "compliant": True,
-    },
-    "table": [
-        {
-            "selector": "pw1",
-            "status": "ok",
-            "compliant": True,
-            "record": "v=DKIM1; k=ed25519; p=...",
-            "message": None,
-        }
-    ],
-}
-```
-
-Invalid selector:
-
-```python
-{
-    "summary": {
-        "domain": "sender.dom",
-        "selector": "pw1",
-        "compliant": False,
-    },
-    "table": [
-        {
-            "selector": "pw1",
-            "status": "error",
-            "compliant": False,
-            "record": None,
-            "message": "DNSSEC not enabled for pw1._domainkey.pw.sender.dom",
-        }
-    ],
-}
-```
+| Field | Meaning |
+|---|---|
+| `domain` | Domain that was checked. |
+| `selector` | Requested selector, or `None` when scanning all selectors. |
+| `compliant` | Overall compliance result for the check. |
 
 ## Design notes
 
