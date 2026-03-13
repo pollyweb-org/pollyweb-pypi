@@ -144,9 +144,9 @@ Internally: `SHA-256(canonical())` → `Hash`; `Ed25519.sign(canonical())` → b
 
 If you are signing through a [`Domain`](domain.md), prefer [`Domain.sign()`](domain.md), which fills in `From` and derives `Selector` from the current DNS/public-key state before signing with the domain's [`KeyPair`](keypair.md).
 
-### `msg.validate(public_key: Ed25519PublicKey | None = None) → bool`
+### `msg.validate(public_key: Ed25519PublicKey | None = None, *, verify_signature: bool = True) → bool`
 
-Validates structure and signature. Returns `True` on success, raises `MsgValidationError` otherwise.
+Validates message structure and, by default, the signature. Returns `True` on success, raises `MsgValidationError` otherwise.
 
 `public_key` is optional. When omitted, the key is fetched from DNS using the
 message's `Selector` and `From` domain:
@@ -162,14 +162,20 @@ The TXT record must follow the standard DKIM wire format:
 flag set. If the domain has not enabled DNSSEC, validation fails with
 `MsgValidationError("DNSSEC not enabled for …")`.
 
+Set `verify_signature=False` to validate the canonical hash and required message
+fields without requiring `Selector`, `Signature`, or a public key. This is
+intended for flows where the receiving domain chooses how to handle messages
+such as `From="Anonymous"` after routing them by `Subject`.
+
 Checks performed in order:
 
 1. `Schema` matches `pollyweb.org/MSG:1.0`
-2. All required header fields (`From`, `To`, `Subject`, `Correlation`, `Timestamp`, `Selector`) are non-empty
-3. `Hash` and `Signature` are present
-4. If no `public_key` supplied: resolve from DNS (DNSSEC required)
+2. Required header fields are non-empty: always `From`, `To`, `Subject`, `Correlation`, `Timestamp`; also `Selector` when `verify_signature=True`
+3. `Hash` is present
+4. When `verify_signature=True`, `Signature` is present
 5. `SHA-256(canonical())` matches stored `Hash`
-6. Ed25519 signature verifies against `canonical()`
+6. When `verify_signature=True` and no `public_key` is supplied: resolve from DNS (DNSSEC required)
+7. When `verify_signature=True`, the Ed25519 signature verifies against `canonical()`
 
 ```python
 # Explicit key (no DNS lookup)
@@ -180,6 +186,9 @@ signed.validate(pair.PublicKey)
 
 # Key resolved from DNS (requires DNSSEC on sender.dom)
 signed.validate()
+
+# Hash-only validation for an anonymous message
+anonymous.validate(verify_signature=False)
 ```
 
 To inspect the sender domain's DNS configuration separately from message

@@ -129,43 +129,59 @@ class Msg:
         sig_b64 = base64.b64encode(private_key.sign(canonical)).decode("ascii")
         return replace(self, Hash=hash_hex, Signature=sig_b64)
 
-    def validate(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
-        """Validate structure and signature. Raises MsgValidationError on failure.
+    def validate(
+        self,
+        public_key: Optional[Ed25519PublicKey] = None,
+        *,
+        verify_signature: bool = True,
+    ) -> bool:
+        """Validate structure and optionally the signature.
 
         If *public_key* is omitted, the key is fetched from DNS using the
         selector and the From domain: ``{Selector}._domainkey.pw.{From}`` (TXT record,
         DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``).
+
+        Set ``verify_signature=False`` to validate the message structure and
+        canonical hash without requiring ``Selector``, ``Signature``, or a public key.
         """
         # -- schema --
         if self.Schema != SCHEMA:
             raise MsgValidationError(f"Unsupported schema: {self.Schema}")
 
         # -- required fields --
-        for field_name, value in [
+        required_fields = [
             ("From", self.From),
             ("To", self.To),
             ("Subject", self.Subject),
             ("Correlation", self.Correlation),
             ("Timestamp", self.Timestamp),
-            ("Selector", self.Selector),
-        ]:
+        ]
+        if verify_signature:
+            required_fields.append(("Selector", self.Selector))
+
+        for field_name, value in required_fields:
             if not value:
                 raise MsgValidationError(f"Missing {field_name}")
 
-        # -- hash & signature present --
+        # -- hash required for all validation paths --
         if self.Hash is None:
             raise MsgValidationError("Missing Hash")
+
+        # -- recompute hash --
+        canonical = self.canonical()
+        if self.Hash != hashlib.sha256(canonical).hexdigest():
+            raise MsgValidationError("Hash mismatch")
+
+        if not verify_signature:
+            return True
+
+        # -- signature required when verification is enabled --
         if self.Signature is None:
             raise MsgValidationError("Missing Signature")
 
         # -- resolve public key from DNS when not supplied --
         if public_key is None:
             public_key = _resolve_dkim_public_key(self.From, self.Selector)
-
-        # -- recompute hash --
-        canonical = self.canonical()
-        if self.Hash != hashlib.sha256(canonical).hexdigest():
-            raise MsgValidationError("Hash mismatch")
 
         # -- verify Ed25519 signature --
         try:

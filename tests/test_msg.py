@@ -1,6 +1,7 @@
 """Tests for pollyweb.msg."""
 
 import base64
+import hashlib
 import json
 import uuid
 from dataclasses import replace
@@ -177,6 +178,9 @@ class TestValidate:
     def test_round_trip(self, signed, public_key):
         assert signed.validate(public_key) is True
 
+    def test_round_trip_without_signature_verification(self, signed):
+        assert signed.validate(verify_signature=False) is True
+
     def test_tampered_body(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
             replace(signed, Body={"greeting": "bye"}).validate(public_key)
@@ -193,6 +197,9 @@ class TestValidate:
         with pytest.raises(pw.MsgValidationError, match="Missing Signature"):
             replace(signed, Signature=None).validate(public_key)
 
+    def test_missing_signature_allowed_when_not_verifying_signature(self, signed):
+        assert replace(signed, Signature=None).validate(verify_signature=False) is True
+
     def test_wrong_public_key(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
             signed.validate(Ed25519PrivateKey.generate().public_key())
@@ -207,6 +214,41 @@ class TestValidate:
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             signed_env.validate(public_key)
+
+    def test_missing_selector_allowed_when_not_verifying_signature(self):
+        msg = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        hashed = replace(msg, Hash=hashlib.sha256(msg.canonical()).hexdigest())
+        assert hashed.validate(verify_signature=False) is True
+
+    def test_missing_selector_still_rejected_when_verifying_signature(self, signed, public_key):
+        with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
+            replace(signed, Selector="").validate(public_key)
+
+    def test_anonymous_message_can_validate_without_signature(self):
+        msg = pw.Msg(
+            From="Anonymous",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        canonical = msg.canonical()
+        hashed = replace(msg, Hash=hashlib.sha256(canonical).hexdigest())
+        assert hashed.validate(verify_signature=False) is True
+
+    def test_anonymous_message_still_requires_hash(self):
+        msg = pw.Msg(
+            From="Anonymous",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
+            msg.validate(verify_signature=False)
 
 
 # ---------------------------------------------------------------------------
