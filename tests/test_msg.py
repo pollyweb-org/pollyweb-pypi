@@ -59,7 +59,13 @@ def public_key(keypair):
 
 @pytest.fixture()
 def msg():
-    return pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pw1", Body={"greeting": "hi"})
+    return pw.Msg(
+        From="sender.dom",
+        To="receiver.dom",
+        Subject="Hello@Host",
+        Selector="pw1",
+        Body={"greeting": "hi"},
+    )
 
 
 @pytest.fixture()
@@ -76,7 +82,7 @@ class TestMsg:
         assert msg.From == "sender.dom"
         assert msg.To == "receiver.dom"
         assert msg.Subject == "Hello@Host"
-        assert msg.DKIM == "pw1"
+        assert msg.Selector == "pw1"
         assert msg.Body == {"greeting": "hi"}
 
     def test_schema_defaults_to_current(self, msg):
@@ -91,12 +97,14 @@ class TestMsg:
         assert "T" in msg.Timestamp
 
     def test_each_instance_gets_unique_correlation(self):
-        e1 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={})
-        e2 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={})
+        e1 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={})
+        e2 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={})
         assert e1.Correlation != e2.Correlation
 
     def test_explicit_correlation_used(self):
-        env = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={}, Correlation="my-id")
+        env = pw.Msg(
+            From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={}, Correlation="my-id"
+        )
         assert env.Correlation == "my-id"
 
     def test_unsigned_by_default(self, msg):
@@ -107,9 +115,9 @@ class TestMsg:
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""
 
-    def test_dkim_defaults_to_empty(self):
+    def test_selector_defaults_to_empty(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
-        assert msg.DKIM == ""
+        assert msg.Selector == ""
 
     def test_body_defaults_to_empty_dict(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
@@ -190,7 +198,7 @@ class TestValidate:
 
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
-            From="a.dom", To="b.dom", Subject="", DKIM="pw1", Body={},
+            From="a.dom", To="b.dom", Subject="", Selector="pw1", Body={},
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             signed_env.validate(public_key)
@@ -244,6 +252,19 @@ class TestValidateDNS:
 
         with patch("dns.resolver.resolve", return_value=answer):
             assert signed.validate() is True
+
+
+class TestDomainSign:
+    def test_domain_sign_derives_selector_from_domain_dns(self, keypair):
+        domain = pw.Domain(Name="sender.dom", KeyPair=keypair, Selector="stale")
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+
+        with patch.object(domain, "dns", return_value={"pw7": keypair.dkim()}):
+            signed = domain.sign(msg)
+
+        assert signed.From == "sender.dom"
+        assert signed.Selector == "pw7"
+        assert signed.validate(keypair.PublicKey) is True
 
 
 # ---------------------------------------------------------------------------
@@ -309,7 +330,7 @@ class TestKeyPair:
         import dns.flags
         pair = pw.KeyPair()
         txt = pair.dkim()
-        domain = pw.Domain(Name="sender.dom", KeyPair=pair, DKIM="pw1")
+        domain = pw.Domain(Name="sender.dom", KeyPair=pair, Selector="pw1")
         signed = domain.sign(pw.Msg(To="receiver.dom", Subject="Hello@Host"))
 
         txt_bytes = txt.encode("utf-8")
@@ -326,7 +347,7 @@ class TestKeyPair:
 
     def test_domain_with_keypair(self):
         pair = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.validate(pair.PublicKey) is True
@@ -339,17 +360,17 @@ class TestKeyPair:
 class TestDomain:
     @pytest.fixture()
     def domain(self, keypair):
-        return pw.Domain(Name="origin.dom", KeyPair=keypair, DKIM="pw1")
+        return pw.Domain(Name="origin.dom", KeyPair=keypair, Selector="pw1")
 
     def test_sign_sets_from(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.From == "origin.dom"
 
-    def test_sign_sets_dkim(self, domain):
+    def test_sign_sets_selector(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
-        assert signed.DKIM == "pw1"
+        assert signed.Selector == "pw1"
 
     def test_sign_produces_valid_signature(self, domain, public_key):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
@@ -370,22 +391,21 @@ class TestDomain:
 
 
 # ---------------------------------------------------------------------------
-# Domain.dkim
+# Domain.dns
 # ---------------------------------------------------------------------------
 
-class TestDomainDkim:
+class TestDomainDNS:
     def test_no_dns_entries_returns_pw1(self):
         import dns.resolver as _r
         pair = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")
         with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
-            selector, txt = domain.dkim()
-        assert selector == "pw1"
-        assert txt == pair.dkim()
+            record = domain.dns()
+        assert record == {"pw1": pair.dkim()}
 
     def test_same_key_returns_existing_entry(self):
         pair = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")
 
         def _resolve(name, rdtype):
             if "pw1._domainkey" in name:
@@ -394,14 +414,13 @@ class TestDomainDkim:
             raise _r.NXDOMAIN
 
         with patch("dns.resolver.resolve", side_effect=_resolve):
-            selector, txt = domain.dkim()
-        assert selector == "pw1"
-        assert txt == pair.dkim()
+            record = domain.dns()
+        assert record == {"pw1": pair.dkim()}
 
     def test_different_key_returns_next_selector(self):
         old_pair = pw.KeyPair()
         new_pair = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=new_pair, DKIM="pw1")
+        domain = pw.Domain(Name="origin.dom", KeyPair=new_pair, Selector="pw1")
 
         def _resolve(name, rdtype):
             if "pw1._domainkey" in name:
@@ -410,14 +429,13 @@ class TestDomainDkim:
             raise _r.NXDOMAIN
 
         with patch("dns.resolver.resolve", side_effect=_resolve):
-            selector, txt = domain.dkim()
-        assert selector == "pw2"
-        assert txt == new_pair.dkim()
+            record = domain.dns()
+        assert record == {"pw2": new_pair.dkim()}
 
     def test_multiple_entries_last_matches_current_key(self):
         key1 = pw.KeyPair()
         key2 = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=key2, DKIM="pw2")
+        domain = pw.Domain(Name="origin.dom", KeyPair=key2, Selector="pw2")
 
         def _resolve(name, rdtype):
             if "pw1._domainkey" in name:
@@ -428,14 +446,13 @@ class TestDomainDkim:
             raise _r.NXDOMAIN
 
         with patch("dns.resolver.resolve", side_effect=_resolve):
-            selector, txt = domain.dkim()
-        assert selector == "pw2"
-        assert txt == key2.dkim()
+            record = domain.dns()
+        assert record == {"pw2": key2.dkim()}
 
     def test_reusing_old_key_raises(self):
         key_a = pw.KeyPair()
         key_b = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=key_a, DKIM="pw2")
+        domain = pw.Domain(Name="origin.dom", KeyPair=key_a, Selector="pw2")
 
         def _resolve(name, rdtype):
             if "pw1._domainkey" in name:
@@ -447,4 +464,4 @@ class TestDomainDkim:
 
         with patch("dns.resolver.resolve", side_effect=_resolve):
             with pytest.raises(ValueError, match="already used"):
-                domain.dkim()
+                domain.dns()

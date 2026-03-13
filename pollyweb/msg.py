@@ -78,7 +78,7 @@ class Msg:
     To: str
     Subject: str
     From: str = ""
-    DKIM: str = ""
+    Selector: str = ""
     Body: Dict[str, Any] = field(default_factory=dict)
     Correlation: str = field(default_factory=lambda: str(uuid.uuid4()))
     Timestamp: str = field(default_factory=_utc_now)
@@ -92,7 +92,7 @@ class Msg:
             "Body": self.Body,
             "Header": {
                 "Correlation": self.Correlation,
-                "DKIM": self.DKIM,
+                "Selector": self.Selector,
                 "From": self.From,
                 "Schema": self.Schema,
                 "Subject": self.Subject,
@@ -114,8 +114,8 @@ class Msg:
     def validate(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
         """Validate structure and signature. Raises MsgValidationError on failure.
 
-        If *public_key* is omitted, the key is fetched from DNS using the DKIM
-        selector and the From domain:  ``{DKIM}._domainkey.{From}``  (TXT record,
+        If *public_key* is omitted, the key is fetched from DNS using the
+        selector and the From domain: ``{Selector}._domainkey.pw.{From}`` (TXT record,
         DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``).
         """
         # -- schema --
@@ -129,7 +129,7 @@ class Msg:
             ("Subject", self.Subject),
             ("Correlation", self.Correlation),
             ("Timestamp", self.Timestamp),
-            ("DKIM", self.DKIM),
+            ("Selector", self.Selector),
         ]:
             if not value:
                 raise MsgValidationError(f"Missing {field_name}")
@@ -142,7 +142,7 @@ class Msg:
 
         # -- resolve public key from DNS when not supplied --
         if public_key is None:
-            public_key = _resolve_dkim_public_key(self.From, self.DKIM)
+            public_key = _resolve_dkim_public_key(self.From, self.Selector)
 
         # -- recompute hash --
         canonical = self.canonical()
@@ -170,7 +170,7 @@ class Msg:
                 "Subject": self.Subject,
                 "Correlation": self.Correlation,
                 "Timestamp": self.Timestamp,
-                "DKIM": self.DKIM,
+                "Selector": self.Selector,
                 "Schema": self.Schema,
             },
             "Body": self.Body,
@@ -188,7 +188,7 @@ class Msg:
             From=h["From"],
             To=h["To"],
             Subject=h["Subject"],
-            DKIM=h["DKIM"],
+            Selector=h["Selector"],
             Body=d["Body"],
             Correlation=h["Correlation"],
             Timestamp=h["Timestamp"],

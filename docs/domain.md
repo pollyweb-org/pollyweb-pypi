@@ -2,6 +2,8 @@
 
 A named sender that holds a [`KeyPair`](keypair.md) and signs outbound [`Msg`](msg.md) instances.
 
+**See also:** [`KeyPair`](keypair.md), [`Msg`](msg.md)
+
 ## Usage
 
 ```python
@@ -29,11 +31,20 @@ signed.validate(pair.PublicKey)  # True
 |---|---|---|
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
 | `KeyPair` | [`KeyPair`](keypair.md) | Holds the Ed25519 private/public key pair used for signing. |
-| `DKIM` | `str` | Key selector (e.g. `pw1`). Written to [`Msg.DKIM`](msg.md) on signing. |
+| `DKIM` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](#domainsignmsg--msg) derives the selector from [`domain.dkim()`](#domaindkim--selector-txt). |
 
 ## `domain.sign(msg) → Msg`
 
-Returns a new [`Msg`](msg.md) with `From`, `DKIM`, `Hash`, and `Signature` set. The original is never modified. Any existing `From`/`DKIM` on the message are overwritten.
+Returns a new [`Msg`](msg.md) with `From`, derived `DKIM`, `Hash`, and `Signature` set. The original is never modified. Any existing `From`/`DKIM` on the message are overwritten.
+
+`sign()` calls [`domain.dkim()`](#domaindkim--selector-txt) and writes the returned selector into [`Msg.DKIM`](msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain.
+
+The `Domain.DKIM` constructor field is therefore informational/backward-compatible only. The canonical flow is:
+
+```python
+selector, txt = domain.dkim()   # publish txt at {selector}._domainkey.pw.{domain.Name}
+signed = domain.sign(msg)       # signed.DKIM == selector
+```
 
 ## `domain.dkim() → (selector, txt)`
 

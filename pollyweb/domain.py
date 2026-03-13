@@ -14,17 +14,17 @@ from pollyweb.msg import Msg
 class Domain:
     Name: str
     KeyPair: KeyPair
-    DKIM: str
+    Selector: str
 
-    def dkim(self):
-        """Return ``(selector, txt)`` for publishing this domain's DKIM key.
+    def dns(self):
+        """Return ``{selector: txt}`` for publishing this domain's DKIM key.
 
         Probes ``pw{n}._domainkey.pw.{Name}`` starting at n=1 until NXDOMAIN,
         then applies the following logic:
 
-        - No entries found → ``("pw1", <TXT for current key>)``.
+        - No entries found → ``{"pw1": <TXT for current key>}``.
         - Last entry matches current public key → returns existing selector + TXT.
-        - Last entry differs → ``("pw{last+1}", <TXT for current key>)``,
+        - Last entry differs → ``{"pw{last+1}": <TXT for current key>}``,
           unless the current key already appears in an older entry, which raises
           ``ValueError`` (reusing a revoked key is not allowed).
         """
@@ -65,12 +65,12 @@ class Domain:
         current_raw = self.KeyPair.PublicKey.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
         if not entries:
-            return "pw1", self.KeyPair.dkim()
+            return {"pw1": self.KeyPair.dkim()}
 
         last_selector, last_raw, last_txt = entries[-1]
 
         if last_raw == current_raw:
-            return last_selector, last_txt
+            return {last_selector: last_txt}
 
         for sel, raw, _ in entries:
             if raw == current_raw:
@@ -80,11 +80,12 @@ class Domain:
                 )
 
         last_num = int(last_selector[2:])
-        return f"pw{last_num + 1}", self.KeyPair.dkim()
+        return {f"pw{last_num + 1}": self.KeyPair.dkim()}
 
     def sign(self, msg: Msg) -> Msg:
-        """Return a new Msg with From/DKIM set from this domain and Ed25519 signature."""
-        return replace(msg, From=self.Name, DKIM=self.DKIM).sign(self.KeyPair.PrivateKey)
+        """Return a new Msg with From/Selector derived from this domain and Ed25519 signature."""
+        selector = next(iter(self.dns()))
+        return replace(msg, From=self.Name, Selector=selector).sign(self.KeyPair.PrivateKey)
 
     def send(self, msg: Msg) -> Msg:
         """Sign *msg* and POST it to ``https://pw.{msg.To}/inbox``. Returns the signed Msg."""
