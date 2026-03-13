@@ -367,3 +367,84 @@ class TestDomain:
         domain.sign(msg)
         assert msg.From == ""
         assert msg.Hash is None
+
+
+# ---------------------------------------------------------------------------
+# Domain.dkim
+# ---------------------------------------------------------------------------
+
+class TestDomainDkim:
+    def test_no_dns_entries_returns_pw1(self):
+        import dns.resolver as _r
+        pair = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
+        with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
+            selector, txt = domain.dkim()
+        assert selector == "pw1"
+        assert txt == pair.dkim()
+
+    def test_same_key_returns_existing_entry(self):
+        pair = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
+
+        def _resolve(name, rdtype):
+            if "pw1._domainkey" in name:
+                return _dkim_dns_answer(pair.PublicKey)
+            import dns.resolver as _r
+            raise _r.NXDOMAIN
+
+        with patch("dns.resolver.resolve", side_effect=_resolve):
+            selector, txt = domain.dkim()
+        assert selector == "pw1"
+        assert txt == pair.dkim()
+
+    def test_different_key_returns_next_selector(self):
+        old_pair = pw.KeyPair()
+        new_pair = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=new_pair, DKIM="pw1")
+
+        def _resolve(name, rdtype):
+            if "pw1._domainkey" in name:
+                return _dkim_dns_answer(old_pair.PublicKey)
+            import dns.resolver as _r
+            raise _r.NXDOMAIN
+
+        with patch("dns.resolver.resolve", side_effect=_resolve):
+            selector, txt = domain.dkim()
+        assert selector == "pw2"
+        assert txt == new_pair.dkim()
+
+    def test_multiple_entries_last_matches_current_key(self):
+        key1 = pw.KeyPair()
+        key2 = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=key2, DKIM="pw2")
+
+        def _resolve(name, rdtype):
+            if "pw1._domainkey" in name:
+                return _dkim_dns_answer(key1.PublicKey)
+            if "pw2._domainkey" in name:
+                return _dkim_dns_answer(key2.PublicKey)
+            import dns.resolver as _r
+            raise _r.NXDOMAIN
+
+        with patch("dns.resolver.resolve", side_effect=_resolve):
+            selector, txt = domain.dkim()
+        assert selector == "pw2"
+        assert txt == key2.dkim()
+
+    def test_reusing_old_key_raises(self):
+        key_a = pw.KeyPair()
+        key_b = pw.KeyPair()
+        domain = pw.Domain(Name="origin.dom", KeyPair=key_a, DKIM="pw2")
+
+        def _resolve(name, rdtype):
+            if "pw1._domainkey" in name:
+                return _dkim_dns_answer(key_a.PublicKey)
+            if "pw2._domainkey" in name:
+                return _dkim_dns_answer(key_b.PublicKey)
+            import dns.resolver as _r
+            raise _r.NXDOMAIN
+
+        with patch("dns.resolver.resolve", side_effect=_resolve):
+            with pytest.raises(ValueError, match="already used"):
+                domain.dkim()

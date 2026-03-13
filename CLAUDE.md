@@ -50,6 +50,9 @@ msg = pw.Msg.from_dict(d)        # round-trip
 - **`Correlation`** auto-generates a UUID4 if not supplied
 - **`Timestamp`** auto-generates a UTC ISO-8601 string if not supplied
 
+## Documentation rule
+Whenever you add or change a public method or field on any class, update the corresponding `docs/*.md` file in the same response — no need to be reminded.
+
 ## Running tests
 ```bash
 pytest
