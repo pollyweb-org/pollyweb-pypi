@@ -14,7 +14,7 @@ pair = pw.KeyPair()
 domain = pw.Domain(
     Name= "sender.dom",
     KeyPair= pair,
-    DKIM= "pw1")
+    Selector= "pw1")
 
 msg = pw.Msg(
     To= "receiver.dom",
@@ -31,22 +31,23 @@ signed.validate(pair.PublicKey)  # True
 |---|---|---|
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
 | `KeyPair` | [`KeyPair`](keypair.md) | Holds the Ed25519 private/public key pair used for signing. |
-| `DKIM` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](#domainsignmsg--msg) derives the selector from [`domain.dkim()`](#domaindkim--selector-txt). |
+| `Selector` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](#domainsignmsg--msg) derives the selector from [`domain.dns()`](#domaindns--selector-txt). |
 
 ## `domain.sign(msg) → Msg`
 
-Returns a new [`Msg`](msg.md) with `From`, derived `DKIM`, `Hash`, and `Signature` set. The original is never modified. Any existing `From`/`DKIM` on the message are overwritten.
+Returns a new [`Msg`](msg.md) with `From`, derived `Selector`, `Hash`, and `Signature` set. The original is never modified. Any existing `From`/`Selector` on the message are overwritten.
 
-`sign()` calls [`domain.dkim()`](#domaindkim--selector-txt) and writes the returned selector into [`Msg.DKIM`](msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain.
+`sign()` calls [`domain.dns()`](#domaindns--selector-txt) and writes the returned selector into [`Msg.Selector`](msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain.
 
-The `Domain.DKIM` constructor field is therefore informational/backward-compatible only. The canonical flow is:
+The `Domain.Selector` constructor field is therefore informational/backward-compatible only. The canonical flow is:
 
 ```python
-selector, txt = domain.dkim()   # publish txt at {selector}._domainkey.pw.{domain.Name}
-signed = domain.sign(msg)       # signed.DKIM == selector
+dns_record = domain.dns()       # {"pw1": "v=DKIM1; k=ed25519; p=..."}
+selector = next(iter(dns_record))
+signed = domain.sign(msg)       # signed.Selector == selector
 ```
 
-## `domain.dkim() → (selector, txt)`
+## `domain.dns() → {selector: txt}`
 
 Determines the correct DKIM selector and TXT record to publish for this domain.
 
@@ -54,16 +55,15 @@ Probes `pw{n}._domainkey.pw.{Name}` in DNS starting at n=1, stepping until the f
 
 | Situation | Result |
 |---|---|
-| No `pw*` entries found | `("pw1", <TXT for current key>)` |
-| Last entry matches current public key | Existing `(selector, txt)` from DNS |
-| Last entry uses a different key (fresh key) | `("pw{last+1}", <TXT for current key>)` |
+| No `pw*` entries found | `{"pw1": <TXT for current key>}` |
+| Last entry matches current public key | Existing `{selector: txt}` from DNS |
+| Last entry uses a different key (fresh key) | `{"pw{last+1}": <TXT for current key>}` |
 | Last entry uses a different key, but current key appeared in an older entry | Raises `ValueError` — reusing a revoked key is not allowed |
 
 ```python
-selector, txt = domain.dkim()
-# selector → "pw1"  (or "pw2", "pw3", …)
-# txt      → "v=DKIM1; k=ed25519; p=<base64>"
-# Publish txt as a DNS TXT record at:
+dns_record = domain.dns()
+# {"pw1": "v=DKIM1; k=ed25519; p=<base64>"}
+# Publish the TXT value at:
 #   {selector}._domainkey.pw.{domain.Name}
 ```
 

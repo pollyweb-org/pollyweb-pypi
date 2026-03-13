@@ -14,8 +14,8 @@ import pollyweb as pw
 pair = pw.KeyPair()  # generates a fresh Ed25519 private key
 
 msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"text": "hi"})
-domain = pw.Domain(Name="sender.dom", KeyPair=pair, DKIM="pw1")
-selector, txt = domain.dkim()
+domain = pw.Domain(Name="sender.dom", KeyPair=pair, Selector="pw1")
+dns_record = domain.dns()
 signed = domain.sign(msg)
 
 signed.validate(pair.PublicKey)  # True
@@ -90,7 +90,7 @@ Publish the returned string as a DNS TXT record at:
 {selector}._domainkey.pw.{domain}
 ```
 
-If you are managing a full PollyWeb sending domain, prefer [`domain.dkim()`](domain.md), which determines the correct selector and returns both `(selector, txt)`. `Domain.sign()` uses that derived selector when populating `Msg.DKIM`.
+If you are managing a full PollyWeb sending domain, prefer [`domain.dns()`](domain.md), which determines the correct selector and returns a `{selector: txt}` mapping. `Domain.sign()` uses that derived selector when populating `Msg.Selector`.
 
 You can override the version tag if needed:
 
