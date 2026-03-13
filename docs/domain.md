@@ -37,4 +37,4 @@ signed.verify(pair.PublicKey)  # True
 
 - [`domain.dns() → {selector: txt}`](domain/dns.md) — derives the next DKIM selector and TXT record to publish.
 - [`domain.sign(msg) → Msg`](domain/sign.md) — returns a new message with `From`, derived `Selector`, `Hash`, and `Signature`.
-- [`domain.send(msg) → Msg`](domain/send.md) — signs a message and POSTs it to the receiver inbox.
+- [`domain.send(msg) → HTTPResponse`](domain/send.md) — signs a message and POSTs it to the receiver inbox.

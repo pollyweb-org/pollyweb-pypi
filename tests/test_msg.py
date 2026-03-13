@@ -170,6 +170,69 @@ class TestSign:
         assert signed.Hash is not None
 
 
+class TestSend:
+    def test_posts_to_receiver_inbox_and_returns_response(self, signed, public_key):
+        response = object()
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
+            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+                result = signed.send()
+
+        assert result is response
+        req = urlopen.call_args.args[0]
+        assert req.full_url == "https://pw.receiver.dom/inbox"
+        assert req.get_method() == "POST"
+        assert req.headers["Content-type"] == "application/json"
+        assert json.loads(req.data.decode("utf-8")) == signed.to_dict()
+
+    def test_send_verifies_signature_before_posting_domain_targets(self, signed, public_key):
+        response = object()
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)) as resolve:
+            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+                result = signed.send()
+
+        assert result is response
+        resolve.assert_called_once()
+        urlopen.assert_called_once()
+
+    def test_send_rejects_invalid_domain_target_signature_before_posting(self, signed):
+        tampered = replace(signed, Signature=base64.b64encode(b"bad-signature").decode("ascii"))
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(pw.KeyPair().PublicKey)):
+            with patch("urllib.request.urlopen") as urlopen:
+                with pytest.raises(pw.MsgValidationError):
+                    tampered.send()
+
+        urlopen.assert_not_called()
+
+    def test_non_domain_targets_only_require_unsigned_validation(self, private_key):
+        msg = pw.Msg(
+            From="sender.dom",
+            To="123e4567-e89b-12d3-a456-426614174000",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        ).sign(private_key)
+        response = object()
+
+        with patch("dns.resolver.resolve", side_effect=AssertionError("DNS should not be called")):
+            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+                result = msg.send()
+
+        assert result is response
+        req = urlopen.call_args.args[0]
+        assert req.full_url == "https://pw.123e4567-e89b-12d3-a456-426614174000/inbox"
+        assert req.get_method() == "POST"
+        assert json.loads(req.data.decode("utf-8")) == msg.to_dict()
+
+    def test_send_validates_message_before_posting(self, msg):
+        with patch("urllib.request.urlopen") as urlopen:
+            with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
+                msg.send()
+
+        urlopen.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Msg.validate
 # ---------------------------------------------------------------------------
@@ -504,6 +567,17 @@ class TestDomain:
         domain.sign(msg)
         assert msg.From == ""
         assert msg.Hash is None
+
+    def test_send_signs_then_posts_and_returns_response(self, domain, public_key):
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
+        response = object()
+
+        with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
+            with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
+                with patch("urllib.request.urlopen", return_value=response):
+                    result = domain.send(msg)
+
+        assert result is response
 
 
 # ---------------------------------------------------------------------------

@@ -121,6 +121,7 @@ received.verify(public_key)
 
 - [`msg.canonical() → bytes`](msg/canonical.md) — canonical JCS bytes used for hashing and signing.
 - [`msg.sign(private_key) → Msg`](msg/sign.md) — returns a new signed message with `Hash` and `Signature`.
+- [`msg.send() → HTTPResponse`](msg/send.md) — validates the message and POSTs it to the receiver inbox.
 - [`msg.verify(public_key=None) → bool`](msg/verify.md) — validates structure, hash, and the Ed25519 signature.
 - [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.
 - [`msg.validate_signature(public_key=None) → bool`](msg/verify.md) — backward-compatible alias for `verify()`.

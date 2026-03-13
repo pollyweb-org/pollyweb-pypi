@@ -1,6 +1,4 @@
 """PollyWeb Domain — signing authority for outbound messages."""
-
-import json
 from dataclasses import dataclass, replace
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -54,19 +52,7 @@ class Domain:
         selector = next(iter(self.dns()))
         return replace(msg, From=self.Name, Selector=selector).sign(self.KeyPair.PrivateKey)
 
-    def send(self, msg: Msg) -> Msg:
-        """Sign *msg* and POST it to ``https://pw.{msg.To}/inbox``. Returns the signed Msg."""
-        import urllib.request
-
+    def send(self, msg: Msg):
+        """Sign *msg*, POST it to the receiver inbox, and return the HTTP response."""
         signed = self.sign(msg)
-        url = f"https://pw.{msg.To}/inbox"
-        body = json.dumps(signed.to_dict(), separators=(",", ":")).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req) as resp:
-            resp.read()
-        return signed
+        return signed.send()

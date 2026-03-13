@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import urllib.request
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
@@ -16,6 +17,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 import yaml
 
 SCHEMA = "pollyweb.org/MSG:1.0"
+
+
+def _is_domain_target(value: str) -> bool:
+    """Return True when *value* looks like a domain-style PollyWeb recipient."""
+    return "." in value
 
 
 def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
@@ -197,6 +203,23 @@ class Msg:
     def validate_signature(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
         """Backward-compatible alias for :meth:`verify`."""
         return self.verify(public_key)
+
+    def send(self):
+        """Validate this message, POST it to the receiver inbox, and return the HTTP response."""
+        if _is_domain_target(self.To):
+            self.verify()
+        else:
+            self.validate_unsigned()
+
+        url = f"https://pw.{self.To}/inbox"
+        body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        return urllib.request.urlopen(req)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
