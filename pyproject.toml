@@ -28,4 +28,5 @@ include = ["pollyweb*"]
 testpaths = ["tests", "pollyweb"]
 
 [tool.setuptools_scm]
+version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"
