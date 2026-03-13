@@ -59,7 +59,7 @@ def public_key(keypair):
 
 @pytest.fixture()
 def msg():
-    return pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={"greeting": "hi"})
+    return pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pw1", Body={"greeting": "hi"})
 
 
 @pytest.fixture()
@@ -76,7 +76,7 @@ class TestMsg:
         assert msg.From == "sender.dom"
         assert msg.To == "receiver.dom"
         assert msg.Subject == "Hello@Host"
-        assert msg.DKIM == "pk1"
+        assert msg.DKIM == "pw1"
         assert msg.Body == {"greeting": "hi"}
 
     def test_schema_defaults_to_current(self, msg):
@@ -91,12 +91,12 @@ class TestMsg:
         assert "T" in msg.Timestamp
 
     def test_each_instance_gets_unique_correlation(self):
-        e1 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
-        e2 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={})
+        e1 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={})
+        e2 = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={})
         assert e1.Correlation != e2.Correlation
 
     def test_explicit_correlation_used(self):
-        env = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pk1", Body={}, Correlation="my-id")
+        env = pw.Msg(From="a.dom", To="b.dom", Subject="Ping", DKIM="pw1", Body={}, Correlation="my-id")
         assert env.Correlation == "my-id"
 
     def test_unsigned_by_default(self, msg):
@@ -190,7 +190,7 @@ class TestValidate:
 
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
-            From="a.dom", To="b.dom", Subject="", DKIM="pk1", Body={},
+            From="a.dom", To="b.dom", Subject="", DKIM="pw1", Body={},
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             signed_env.validate(public_key)
@@ -309,7 +309,7 @@ class TestKeyPair:
         import dns.flags
         pair = pw.KeyPair()
         txt = pair.dkim()
-        domain = pw.Domain(Name="sender.dom", KeyPair=pair, DKIM="pk1")
+        domain = pw.Domain(Name="sender.dom", KeyPair=pair, DKIM="pw1")
         signed = domain.sign(pw.Msg(To="receiver.dom", Subject="Hello@Host"))
 
         txt_bytes = txt.encode("utf-8")
@@ -326,7 +326,7 @@ class TestKeyPair:
 
     def test_domain_with_keypair(self):
         pair = pw.KeyPair()
-        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pk1")
+        domain = pw.Domain(Name="origin.dom", KeyPair=pair, DKIM="pw1")
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.validate(pair.PublicKey) is True
@@ -339,7 +339,7 @@ class TestKeyPair:
 class TestDomain:
     @pytest.fixture()
     def domain(self, keypair):
-        return pw.Domain(Name="origin.dom", KeyPair=keypair, DKIM="pk1")
+        return pw.Domain(Name="origin.dom", KeyPair=keypair, DKIM="pw1")
 
     def test_sign_sets_from(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
@@ -349,7 +349,7 @@ class TestDomain:
     def test_sign_sets_dkim(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
-        assert signed.DKIM == "pk1"
+        assert signed.DKIM == "pw1"
 
     def test_sign_produces_valid_signature(self, domain, public_key):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")

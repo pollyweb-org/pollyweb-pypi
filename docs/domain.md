@@ -12,7 +12,7 @@ pair = pw.KeyPair()
 domain = pw.Domain(
     Name= "sender.dom",
     KeyPair= pair,
-    DKIM= "pk1")
+    DKIM= "pw1")
 
 msg = pw.Msg(
     To= "receiver.dom",
@@ -29,7 +29,7 @@ signed.validate(pair.PublicKey)  # True
 |---|---|---|
 | `Name` | `str` | Written to `Msg.From` on signing. |
 | `KeyPair` | `KeyPair` | Holds the Ed25519 private/public key pair used for signing. |
-| `DKIM` | `str` | Key selector (e.g. `pk1`). Written to `Msg.DKIM` on signing. |
+| `DKIM` | `str` | Key selector (e.g. `pw1`). Written to `Msg.DKIM` on signing. |
 
 ## `domain.sign(msg) → Msg`
 

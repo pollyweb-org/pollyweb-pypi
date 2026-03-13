@@ -24,11 +24,11 @@ import pollyweb as pw
 # Recommended: build a message and sign it via a Domain
 keypair = pw.KeyPair()
 msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={...})
-domain = pw.Domain(Name="sender.dom", KeyPair=keypair, DKIM="pk1")
+domain = pw.Domain(Name="sender.dom", KeyPair=keypair, DKIM="pw1")
 signed = domain.sign(msg)        # sets From, DKIM, Hash, Signature → new Msg
 
 # Direct signing (when you already have From/DKIM on the Msg)
-msg = pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pk1", Body={...})
+msg = pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pw1", Body={...})
 signed = msg.sign(private_key)   # Ed25519PrivateKey → new Msg
 
 # Validate
