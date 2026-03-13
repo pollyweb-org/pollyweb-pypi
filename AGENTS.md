@@ -35,7 +35,7 @@ msg = pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="p
 signed = msg.sign(private_key)   # Ed25519PrivateKey → new Msg
 
 # Validate
-signed.validate(public_key)      # Ed25519PublicKey → True or raises pw.MsgValidationError
+signed.verify(public_key)        # Ed25519PublicKey → True or raises pw.MsgValidationError
 
 # Serialise
 d   = signed.to_dict()           # wire-format dict

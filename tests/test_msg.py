@@ -176,7 +176,7 @@ class TestSign:
 
 class TestValidate:
     def test_round_trip(self, signed, public_key):
-        assert signed.validate_signature(public_key) is True
+        assert signed.verify(public_key) is True
 
     def test_uuid_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
         sender_id = "123e4567-e89b-12d3-a456-426614174000"
@@ -188,47 +188,44 @@ class TestValidate:
         )
         signed = msg.sign(private_key)
         assert signed.Selector == ""
-        assert signed.validate_signature(private_key.public_key()) is True
-
-    def test_validate_alias_still_works(self, signed, public_key):
-        assert signed.validate(public_key) is True
+        assert signed.verify(private_key.public_key()) is True
 
     def test_round_trip_without_signature_verification(self, signed):
         assert signed.validate_unsigned() is True
 
     def test_tampered_body(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
-            replace(signed, Body={"greeting": "bye"}).validate_signature(public_key)
+            replace(signed, Body={"greeting": "bye"}).verify(public_key)
 
     def test_tampered_header(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
-            replace(signed, Subject="Evil@Host").validate_signature(public_key)
+            replace(signed, Subject="Evil@Host").verify(public_key)
 
     def test_missing_hash(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
-            replace(signed, Hash=None).validate_signature(public_key)
+            replace(signed, Hash=None).verify(public_key)
 
     def test_missing_signature(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Missing Signature"):
-            replace(signed, Signature=None).validate_signature(public_key)
+            replace(signed, Signature=None).verify(public_key)
 
     def test_missing_signature_allowed_when_not_verifying_signature(self, signed):
         assert replace(signed, Signature=None).validate_unsigned() is True
 
     def test_wrong_public_key(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
-            signed.validate_signature(Ed25519PrivateKey.generate().public_key())
+            signed.verify(Ed25519PrivateKey.generate().public_key())
 
     def test_unsupported_schema(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Unsupported schema"):
-            replace(signed, Schema="pollyweb.org/MSG:99.0").validate_signature(public_key)
+            replace(signed, Schema="pollyweb.org/MSG:99.0").verify(public_key)
 
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
             From="a.dom", To="b.dom", Subject="", Selector="pw1", Body={},
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
-            signed_env.validate_signature(public_key)
+            signed_env.verify(public_key)
 
     def test_missing_selector_allowed_when_not_verifying_signature(self):
         msg = pw.Msg(
@@ -242,11 +239,11 @@ class TestValidate:
 
     def test_tampered_selector_fails_even_with_explicit_public_key(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
-            replace(signed, Selector="").validate_signature(public_key)
+            replace(signed, Selector="").verify(public_key)
 
     def test_missing_selector_required_when_dns_lookup_is_needed(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
-            replace(signed, Selector="").validate_signature()
+            replace(signed, Selector="").verify()
 
     def test_anonymous_message_can_validate_without_signature(self):
         msg = pw.Msg(
@@ -277,29 +274,29 @@ class TestValidate:
 class TestValidateDNS:
     def test_resolves_key_from_dns_when_not_supplied(self, signed, public_key):
         with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
-            assert signed.validate() is True
+            assert signed.verify() is True
 
     def test_dns_lookup_failure_raises(self, signed):
         import dns.resolver as _r
         with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
             with pytest.raises(pw.MsgValidationError, match="DKIM lookup failed"):
-                signed.validate()
+                signed.verify()
 
     def test_no_dnssec_raises(self, signed, public_key):
         with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key, ad_flag=False)):
             with pytest.raises(pw.MsgValidationError, match="DNSSEC not enabled"):
-                signed.validate()
+                signed.verify()
 
     def test_explicit_key_skips_dns(self, signed, public_key):
         # DNS must not be called when a key is supplied explicitly
         with patch("dns.resolver.resolve", side_effect=AssertionError("DNS should not be called")):
-            assert signed.validate(public_key) is True
+            assert signed.verify(public_key) is True
 
     def test_wrong_key_in_dns_fails(self, signed):
         wrong_key = pw.KeyPair().PublicKey
         with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(wrong_key)):
             with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
-                signed.validate()
+                signed.verify()
 
     def test_dkim_txt_with_multiple_semicolon_fields(self, signed, public_key):
         """TXT record with extra fields (e.g. t=s) is parsed correctly."""
@@ -317,7 +314,7 @@ class TestValidateDNS:
         answer.response = response
 
         with patch("dns.resolver.resolve", return_value=answer):
-            assert signed.validate() is True
+            assert signed.verify() is True
 
 
 class TestDomainSign:
@@ -330,7 +327,7 @@ class TestDomainSign:
 
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw7"
-        assert signed.validate(keypair.PublicKey) is True
+        assert signed.verify(keypair.PublicKey) is True
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +355,7 @@ class TestSerialization:
         assert "Signature" in d
 
     def test_validate_after_round_trip(self, signed, public_key):
-        assert pw.Msg.from_dict(signed.to_dict()).validate(public_key) is True
+        assert pw.Msg.from_dict(signed.to_dict()).verify(public_key) is True
 
 
 class TestParse:
@@ -444,14 +441,14 @@ class TestKeyPair:
         answer.response = response
 
         with patch("dns.resolver.resolve", return_value=answer):
-            assert signed.validate() is True
+            assert signed.verify() is True
 
     def test_domain_with_keypair(self):
         pair = pw.KeyPair()
         domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
-        assert signed.validate(pair.PublicKey) is True
+        assert signed.verify(pair.PublicKey) is True
 
     def test_private_pem_bytes_roundtrip(self):
         pair = pw.KeyPair()
@@ -494,7 +491,7 @@ class TestDomain:
     def test_sign_produces_valid_signature(self, domain, public_key):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
-        assert signed.validate(public_key) is True
+        assert signed.verify(public_key) is True
 
     def test_sign_preserves_to_and_subject(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")

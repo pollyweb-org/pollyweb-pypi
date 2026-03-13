@@ -31,7 +31,7 @@ Reference documentation for the `pollyweb` Python package.
 
 - [`msg.canonical()`](msg/canonical.md)
 - [`msg.sign()`](msg/sign.md)
-- [`msg.validate()`](msg/validate.md)
+- [`msg.verify()`](msg/verify.md)
 - [`msg.to_dict()`](msg/to_dict.md)
 - [`Msg.parse()`](msg/parse.md)
 - [`Msg.from_dict()`](msg/from_dict.md)
@@ -51,7 +51,7 @@ msg = pw.Msg(
 )
 
 signed = domain.sign(msg)
-signed.validate(pair.PublicKey)
+signed.verify(pair.PublicKey)
 ```
 
 

@@ -18,7 +18,7 @@ domain = pw.Domain(Name="sender.dom", KeyPair=pair, Selector="pw1")
 dns_record = domain.dns()
 signed = domain.sign(msg)
 
-signed.validate(pair.PublicKey)  # True
+signed.verify(pair.PublicKey)  # True
 ```
 
 To export PEM files:
@@ -61,7 +61,7 @@ Returns the public key derived from `PrivateKey`.
 This is a computed property, not a constructor argument. It is typically used to validate signed messages without DNS lookup:
 
 ```python
-signed.validate(pair.PublicKey)
+signed.verify(pair.PublicKey)
 ```
 
 The returned public key is equivalent to:
@@ -86,6 +86,6 @@ pair.PrivateKey.public_key()
 
 **Public key is derived, not stored separately** — `PublicKey` is computed from `PrivateKey`, so the pair cannot drift out of sync.
 
-**DNS export is raw-key based** — `dkim()` serialises the Ed25519 public key in raw form and base64-encodes it for the `p=` tag, matching the format expected by `Msg.validate()` when resolving keys from DNS.
+**DNS export is raw-key based** — `dkim()` serialises the Ed25519 public key in raw form and base64-encodes it for the `p=` tag, matching the format expected by `Msg.verify()` when resolving keys from DNS.
 
 **PEM export is part of the keypair API** — use `private_pem_bytes()` and `public_pem_bytes()` instead of re-implementing `cryptography` serialization at call sites.

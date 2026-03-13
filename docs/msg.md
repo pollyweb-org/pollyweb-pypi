@@ -53,7 +53,7 @@ signed = msg.sign(private_key)
 # Receiver: validate
 public_key = private_key.public_key()
 
-signed.validate_signature(public_key)  # True, or raises pw.MsgValidationError
+signed.verify(public_key)  # True, or raises pw.MsgValidationError
 ```
 
 ## Receiving and verifying from another domain
@@ -67,10 +67,10 @@ received = pw.Msg.parse(raw_message)
 # Recommended: let PollyWeb resolve the sender's DKIM key from DNS
 # using received.From + received.Selector.
 # This requires the sender domain to publish the DKIM TXT record with DNSSEC enabled.
-received.validate_signature()  # True, or raises pw.MsgValidationError
+received.verify()  # True, or raises pw.MsgValidationError
 ```
 
-The DNS lookup used by `validate_signature()` is:
+The DNS lookup used by `verify()` is:
 
 ```text
 {Selector}._domainkey.pw.{From}
@@ -91,7 +91,7 @@ v=DKIM1; k=ed25519; p=<base64-encoded public key>
 If you already trust or cache the sender's public key, you can validate without DNS:
 
 ```python
-received.validate_signature(public_key)
+received.verify(public_key)
 ```
 
 ---
@@ -113,7 +113,7 @@ received.validate_signature(public_key)
 | `Hash` | `str \| None` | — | `None` | SHA-256 hex digest of the canonical form. Set by `sign()`. |
 | `Signature` | `str \| None` | — | `None` | Base64-encoded Ed25519 signature. Set by `sign()`. |
 
-`validate_signature()` and `validate_unsigned()` always require `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. `Selector` is required only when signature validation needs DNS to resolve the sender key.
+`verify()` and `validate_unsigned()` always require `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. `Selector` is required only when signature validation needs DNS to resolve the sender key.
 
 ---
 
@@ -121,9 +121,9 @@ received.validate_signature(public_key)
 
 - [`msg.canonical() → bytes`](msg/canonical.md) — canonical JCS bytes used for hashing and signing.
 - [`msg.sign(private_key) → Msg`](msg/sign.md) — returns a new signed message with `Hash` and `Signature`.
-- [`msg.validate_signature(public_key=None) → bool`](msg/validate.md) — validates structure, hash, and the Ed25519 signature.
+- [`msg.verify(public_key=None) → bool`](msg/verify.md) — validates structure, hash, and the Ed25519 signature.
 - [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.
-- [`msg.validate(public_key=None) → bool`](msg/validate.md) — backward-compatible alias for `validate_signature()`.
+- [`msg.validate_signature(public_key=None) → bool`](msg/verify.md) — backward-compatible alias for `verify()`.
 - [`msg.to_dict() → dict`](msg/to_dict.md) — serialises the message to the PollyWeb wire-format mapping.
 - [`Msg.parse(value) → Msg`](msg/parse.md) — parses a message from an existing `Msg`, mapping, JSON text, YAML text, or bytes.
 - [`Msg.from_dict(d) → Msg`](msg/from_dict.md) — constructs a `Msg` from a wire-format dictionary.
@@ -153,7 +153,7 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 ## Error handling
 
-`MsgValidationError` is raised by `validate_signature()` and `validate_unsigned()` with a descriptive message:
+`MsgValidationError` is raised by `verify()` and `validate_unsigned()` with a descriptive message:
 
 | Message | Cause |
 |---|---|
@@ -179,4 +179,4 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 **CamelCase fields** — Field names on `Msg` match the wire-format names (e.g. `From`, `To`, `Subject`) for consistency between the Python API and the JSON representation.
 
-**`From` and `Selector` are optional at construction** — They default to `""` so that a `Msg` can be built without knowing the sender. [`domain.sign()`](domain/sign.md) fills them in automatically, deriving `Selector` from [`domain.dns()`](domain/dns.md). `validate_signature()` requires `Selector` only when it must resolve the sender key from DNS.
+**`From` and `Selector` are optional at construction** — They default to `""` so that a `Msg` can be built without knowing the sender. [`domain.sign()`](domain/sign.md) fills them in automatically, deriving `Selector` from [`domain.dns()`](domain/dns.md). `verify()` requires `Selector` only when it must resolve the sender key from DNS.

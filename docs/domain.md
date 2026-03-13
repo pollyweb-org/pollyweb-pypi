@@ -22,7 +22,7 @@ msg = pw.Msg(
     Body= {"text": "hi"})
 
 signed = domain.sign(msg)
-signed.validate(pair.PublicKey)  # True
+signed.verify(pair.PublicKey)  # True
 ```
 
 ## Fields

@@ -165,7 +165,7 @@ class Msg:
         self._validate_hash()
         return True
 
-    def validate_signature(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
+    def verify(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
         """Validate structure, canonical hash, and Ed25519 signature.
 
         If *public_key* is omitted, the key is fetched from DNS using the
@@ -194,9 +194,9 @@ class Msg:
 
         return True
 
-    def validate(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
-        """Backward-compatible alias for :meth:`validate_signature`."""
-        return self.validate_signature(public_key)
+    def validate_signature(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
+        """Backward-compatible alias for :meth:`verify`."""
+        return self.verify(public_key)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
