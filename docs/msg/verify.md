@@ -21,7 +21,7 @@ If `public_key` is passed explicitly, `Selector` is not required because DNS res
 ## Validation order
 
 1. `Schema` must match `pollyweb.org/MSG:1.0`
-2. Required header fields must be non-empty: always `From`, `To`, `Subject`, `Correlation`, `Timestamp`; also `Selector` when DNS lookup is needed
+2. Required header fields must be non-empty: always `To`, `Subject`, `Correlation`, `Timestamp`; `From` is normalized to `Anonymous` when omitted; `Selector` is also required when DNS lookup is needed
 3. `Hash` must be present
 4. `Signature` must be present
 5. `SHA-256(canonical())` must match the stored `Hash`

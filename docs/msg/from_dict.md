@@ -4,6 +4,8 @@ Constructs a [`Msg`](../msg.md) from a wire-format dictionary.
 
 The input must follow the PollyWeb message shape with top-level `Header` and `Body` entries, plus optional `Hash` and `Signature`.
 
+If `Header.From` is missing or empty, `from_dict()` sets `msg.From` to `Anonymous`. If `Header.Selector` is missing or empty, `msg.Selector` is set to `""`.
+
 ```python
 msg = pw.Msg.from_dict(
     {

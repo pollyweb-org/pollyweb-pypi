@@ -172,19 +172,26 @@ class Msg:
     Hash: Optional[str] = None
     Signature: Optional[str] = None
 
+    def _effective_from(self) -> str:
+        """Return the sender name used on the wire and in canonicalization."""
+        return self.From or "Anonymous"
+
     def canonical(self) -> bytes:
         """Return the canonical JCS JSON bytes of schema + header + body."""
+        header = {
+            "Correlation": self.Correlation,
+            "From": self._effective_from(),
+            "Schema": self.Schema,
+            "Subject": self.Subject,
+            "Timestamp": self.Timestamp,
+            "To": self.To,
+        }
+        if self.Selector:
+            header["Selector"] = self.Selector
+
         payload = {
             "Body": self.Body,
-            "Header": {
-                "Correlation": self.Correlation,
-                "Selector": self.Selector,
-                "From": self.From,
-                "Schema": self.Schema,
-                "Subject": self.Subject,
-                "Timestamp": self.Timestamp,
-                "To": self.To,
-            },
+            "Header": header,
         }
         return json.dumps(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -203,7 +210,6 @@ class Msg:
 
     def _validate_required_fields(self, *, require_selector: bool) -> None:
         required_fields = [
-            ("From", self.From),
             ("To", self.To),
             ("Subject", self.Subject),
             ("Correlation", self.Correlation),
@@ -284,16 +290,19 @@ class Msg:
         return urllib.request.urlopen(req)
 
     def to_dict(self) -> Dict[str, Any]:
+        header: Dict[str, Any] = {
+            "From": self._effective_from(),
+            "To": self.To,
+            "Subject": self.Subject,
+            "Correlation": self.Correlation,
+            "Timestamp": self.Timestamp,
+            "Schema": self.Schema,
+        }
+        if self.Selector:
+            header["Selector"] = self.Selector
+
         d: Dict[str, Any] = {
-            "Header": {
-                "From": self.From,
-                "To": self.To,
-                "Subject": self.Subject,
-                "Correlation": self.Correlation,
-                "Timestamp": self.Timestamp,
-                "Selector": self.Selector,
-                "Schema": self.Schema,
-            },
+            "Header": header,
             "Body": self.Body,
         }
         if self.Hash is not None:
@@ -337,11 +346,11 @@ class Msg:
     def from_dict(cls, d: Dict[str, Any]) -> "Msg":
         h = d["Header"]
         return cls(
-            From=h["From"],
+            From=h.get("From") or "Anonymous",
             To=h["To"],
             Subject=h["Subject"],
-            Selector=h["Selector"],
-            Body=d["Body"],
+            Selector=h.get("Selector", ""),
+            Body=d.get("Body", {}),
             Correlation=h["Correlation"],
             Timestamp=h["Timestamp"],
             Schema=h["Schema"],

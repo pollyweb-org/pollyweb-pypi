@@ -19,4 +19,6 @@ received = pw.Msg.parse(raw_message)
 
 Mappings are normalized into JSON-wire-compatible scalar values before being passed to [`Msg.from_dict()`](from_dict.md). If the mapping looks like an AWS EventBridge, SNS, SQS, API Gateway, or Kinesis envelope, `parse()` automatically unwraps `detail`, `Message`, `Records[*].body`, `body`, or `Records[*].kinesis.data` and parses the embedded PollyWeb message. API Gateway payloads with `isBase64Encoded: true` and Kinesis record payloads are base64-decoded before parsing.
 
+If the parsed wire message omits `Header.From` or sets it to an empty string, the resulting [`Msg`](../msg.md) uses `From="Anonymous"`. If `Header.Selector` is omitted or empty, the resulting `Msg` keeps `Selector=""`.
+
 Raises `TypeError` if the parsed value is not a supported message representation.

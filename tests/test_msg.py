@@ -121,6 +121,10 @@ class TestMsg:
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""
 
+    def test_effective_from_defaults_to_anonymous(self):
+        msg = pw.Msg(To="b.dom", Subject="Ping")
+        assert msg.to_dict()["Header"]["From"] == "Anonymous"
+
     def test_selector_defaults_to_empty(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.Selector == ""
@@ -154,6 +158,19 @@ class TestCanonical:
 
     def test_changes_with_body(self, msg):
         assert msg.canonical() != replace(msg, Body={"x": 1}).canonical()
+
+    def test_omitted_from_is_canonicalized_as_anonymous(self):
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+        assert json.loads(msg.canonical())["Header"]["From"] == "Anonymous"
+
+    def test_empty_selector_is_omitted_from_canonical_form(self):
+        msg = pw.Msg(
+            From="Anonymous",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        assert "Selector" not in json.loads(msg.canonical())["Header"]
 
 
 # ---------------------------------------------------------------------------
@@ -420,6 +437,48 @@ class TestSerialization:
     def test_validate_after_round_trip(self, signed, public_key):
         assert pw.Msg.from_dict(signed.to_dict()).verify(public_key) is True
 
+    def test_from_dict_defaults_missing_from_to_anonymous(self):
+        msg = pw.Msg.from_dict(
+            {
+                "Header": {
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        assert msg.From == "Anonymous"
+
+    def test_to_dict_omits_empty_selector(self):
+        msg = pw.Msg(
+            From="Anonymous",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        assert "Selector" not in msg.to_dict()["Header"]
+
+    def test_from_dict_defaults_empty_from_to_anonymous(self):
+        msg = pw.Msg.from_dict(
+            {
+                "Header": {
+                    "From": "",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        assert msg.From == "Anonymous"
+
 
 class TestParse:
     def test_parse_msg_returns_same_instance(self, msg):
@@ -446,6 +505,21 @@ Body:
   greeting: hi
 """ % (msg.Correlation, msg.Timestamp, msg.Schema)
         assert pw.Msg.parse(raw) == msg
+
+    def test_parse_yaml_string_defaults_missing_from_to_anonymous(self):
+        raw = """
+Header:
+  To: receiver.dom
+  Subject: Hello@Host
+  Correlation: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  Timestamp: 2025-06-01T12:00:00.000Z
+  Selector:
+  Schema: %s
+Body:
+  greeting: hi
+""" % SCHEMA
+        parsed = pw.Msg.parse(raw)
+        assert parsed.From == "Anonymous"
 
     def test_parse_eventbridge_dict_with_detail_mapping(self, msg):
         event = {
