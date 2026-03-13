@@ -95,27 +95,62 @@ def _normalize_wire_value(value: Any) -> Any:
 
 def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
     """Return a PollyWeb wire mapping, unwrapping known transport envelopes."""
+    def _parse_embedded_mapping(embedded: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(embedded, str):
+            try:
+                embedded = json.loads(embedded)
+            except json.JSONDecodeError:
+                try:
+                    embedded = yaml.safe_load(embedded)
+                except yaml.YAMLError:
+                    return None
+
+        if isinstance(embedded, Mapping):
+            embedded_mapping = _normalize_wire_value(dict(embedded))
+            if "Header" in embedded_mapping:
+                return embedded_mapping
+
+        return None
+
     normalized = _normalize_wire_value(dict(value))
     if "Header" in normalized:
         return normalized
 
-    detail = normalized.get("detail")
-    if detail is None:
-        return normalized
+    for field_name in ("detail", "Message"):
+        embedded_mapping = _parse_embedded_mapping(normalized.get(field_name))
+        if embedded_mapping is not None:
+            return embedded_mapping
 
-    if isinstance(detail, str):
-        try:
-            detail = json.loads(detail)
-        except json.JSONDecodeError:
+    records = normalized.get("Records")
+    if isinstance(records, list):
+        for record in records:
+            if not isinstance(record, Mapping):
+                continue
+            embedded_mapping = _parse_embedded_mapping(record.get("body"))
+            if embedded_mapping is not None:
+                return embedded_mapping
+            kinesis = record.get("kinesis")
+            if isinstance(kinesis, Mapping):
+                data = kinesis.get("data")
+                if isinstance(data, str):
+                    try:
+                        data = base64.b64decode(data).decode("utf-8")
+                    except Exception:
+                        data = None
+                    embedded_mapping = _parse_embedded_mapping(data)
+                    if embedded_mapping is not None:
+                        return embedded_mapping
+
+    body = normalized.get("body")
+    if body is not None:
+        if normalized.get("isBase64Encoded") is True and isinstance(body, str):
             try:
-                detail = yaml.safe_load(detail)
-            except yaml.YAMLError:
-                return normalized
-
-    if isinstance(detail, Mapping):
-        detail_mapping = _normalize_wire_value(dict(detail))
-        if "Header" in detail_mapping:
-            return detail_mapping
+                body = base64.b64decode(body).decode("utf-8")
+            except Exception:
+                body = None
+        embedded_mapping = _parse_embedded_mapping(body)
+        if embedded_mapping is not None:
+            return embedded_mapping
 
     return normalized
 

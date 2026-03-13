@@ -469,6 +469,106 @@ Body:
         )
         assert pw.Msg.parse(raw) == msg
 
+    def test_parse_sns_dict_with_message_mapping(self, msg):
+        event = {
+            "Type": "Notification",
+            "MessageId": "message-1",
+            "TopicArn": "arn:aws:sns:eu-west-1:123456789012:pollyweb",
+            "Message": msg.to_dict(),
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_sns_json_with_message_json_string(self, msg):
+        raw = json.dumps(
+            {
+                "Type": "Notification",
+                "MessageId": "message-1",
+                "TopicArn": "arn:aws:sns:eu-west-1:123456789012:pollyweb",
+                "Message": json.dumps(msg.to_dict()),
+            }
+        )
+        assert pw.Msg.parse(raw) == msg
+
+    def test_parse_sqs_dict_with_record_body_mapping(self, msg):
+        event = {
+            "Records": [
+                {
+                    "messageId": "message-1",
+                    "receiptHandle": "handle",
+                    "body": msg.to_dict(),
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_sqs_json_with_record_body_json_string(self, msg):
+        raw = json.dumps(
+            {
+                "Records": [
+                    {
+                        "messageId": "message-1",
+                        "receiptHandle": "handle",
+                        "body": json.dumps(msg.to_dict()),
+                        "eventSource": "aws:sqs",
+                    }
+                ]
+            }
+        )
+        assert pw.Msg.parse(raw) == msg
+
+    def test_parse_api_gateway_dict_with_body_json_string(self, msg):
+        event = {
+            "resource": "/inbox",
+            "path": "/inbox",
+            "httpMethod": "POST",
+            "body": json.dumps(msg.to_dict()),
+            "isBase64Encoded": False,
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_api_gateway_dict_with_base64_body_json_string(self, msg):
+        event = {
+            "version": "2.0",
+            "routeKey": "POST /inbox",
+            "rawPath": "/inbox",
+            "body": base64.b64encode(json.dumps(msg.to_dict()).encode("utf-8")).decode("ascii"),
+            "isBase64Encoded": True,
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_kinesis_dict_with_base64_record_data(self, msg):
+        event = {
+            "Records": [
+                {
+                    "eventSource": "aws:kinesis",
+                    "kinesis": {
+                        "data": base64.b64encode(
+                            json.dumps(msg.to_dict()).encode("utf-8")
+                        ).decode("ascii")
+                    },
+                }
+            ]
+        }
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_kinesis_json_with_base64_record_data(self, msg):
+        raw = json.dumps(
+            {
+                "Records": [
+                    {
+                        "eventSource": "aws:kinesis",
+                        "kinesis": {
+                            "data": base64.b64encode(
+                                json.dumps(msg.to_dict()).encode("utf-8")
+                            ).decode("ascii")
+                        },
+                    }
+                ]
+            }
+        )
+        assert pw.Msg.parse(raw) == msg
+
     def test_parse_bytes(self, msg):
         raw = json.dumps(msg.to_dict()).encode("utf-8")
         assert pw.Msg.parse(raw) == msg
