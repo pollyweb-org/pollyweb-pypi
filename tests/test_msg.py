@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+    load_pem_private_key,
+    load_pem_public_key,
+)
 
 import pollyweb as pw
 from pollyweb.msg import SCHEMA
@@ -351,6 +356,24 @@ class TestKeyPair:
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
         assert signed.validate(pair.PublicKey) is True
+
+    def test_private_pem_bytes_roundtrip(self):
+        pair = pw.KeyPair()
+
+        private_key = load_pem_private_key(pair.private_pem_bytes(), password=None)
+
+        data = b"test"
+        sig = private_key.sign(data)
+        pair.PublicKey.verify(sig, data)
+
+    def test_public_pem_bytes_roundtrip(self):
+        pair = pw.KeyPair()
+
+        public_key = load_pem_public_key(pair.public_pem_bytes())
+
+        data = b"test"
+        sig = pair.PrivateKey.sign(data)
+        public_key.verify(sig, data)
 
 
 # ---------------------------------------------------------------------------

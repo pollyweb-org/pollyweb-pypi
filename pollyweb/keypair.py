@@ -7,7 +7,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 
 
 def _generate_private() -> Ed25519PrivateKey:
@@ -33,3 +38,18 @@ class KeyPair:
         raw = self.PublicKey.public_bytes(Encoding.Raw, PublicFormat.Raw)
         p = base64.b64encode(raw).decode("ascii")
         return f"v={v}; k=ed25519; p={p}"
+
+    def private_pem_bytes(self) -> bytes:
+        """Return the private key encoded as PKCS#8 PEM bytes."""
+        return self.PrivateKey.private_bytes(
+            encoding=Encoding.PEM,
+            format=PrivateFormat.PKCS8,
+            encryption_algorithm=NoEncryption(),
+        )
+
+    def public_pem_bytes(self) -> bytes:
+        """Return the public key encoded as SubjectPublicKeyInfo PEM bytes."""
+        return self.PublicKey.public_bytes(
+            encoding=Encoding.PEM,
+            format=PublicFormat.SubjectPublicKeyInfo,
+        )

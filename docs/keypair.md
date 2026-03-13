@@ -21,6 +21,13 @@ signed = domain.sign(msg)
 signed.validate(pair.PublicKey)  # True
 ```
 
+To export PEM files:
+
+```python
+private_pem = pair.private_pem_bytes()
+public_pem = pair.public_pem_bytes()
+```
+
 You can also wrap an existing Ed25519 private key:
 
 ```python
@@ -101,6 +108,38 @@ You can override the version tag if needed:
 pair.dkim("DKIM2")
 ```
 
+### `pair.private_pem_bytes() → bytes`
+
+Returns the private key encoded as unencrypted PKCS#8 PEM bytes.
+
+```python
+private_pem = pair.private_pem_bytes()
+```
+
+This is intended for writing a local signing key file:
+
+```python
+from pathlib import Path
+
+Path("private.pem").write_bytes(pair.private_pem_bytes())
+```
+
+### `pair.public_pem_bytes() → bytes`
+
+Returns the public key encoded as SubjectPublicKeyInfo PEM bytes.
+
+```python
+public_pem = pair.public_pem_bytes()
+```
+
+This is intended for writing a shareable verification key file:
+
+```python
+from pathlib import Path
+
+Path("public.pem").write_bytes(pair.public_pem_bytes())
+```
+
 ---
 
 ## Design notes
@@ -110,3 +149,5 @@ pair.dkim("DKIM2")
 **Public key is derived, not stored separately** — `PublicKey` is computed from `PrivateKey`, so the pair cannot drift out of sync.
 
 **DNS export is raw-key based** — `dkim()` serialises the Ed25519 public key in raw form and base64-encodes it for the `p=` tag, matching the format expected by `Msg.validate()` when resolving keys from DNS.
+
+**PEM export is part of the keypair API** — use `private_pem_bytes()` and `public_pem_bytes()` instead of re-implementing `cryptography` serialization at call sites.
