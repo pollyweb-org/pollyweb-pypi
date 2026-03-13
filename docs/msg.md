@@ -53,7 +53,7 @@ signed = msg.sign(private_key)
 # Receiver: validate
 public_key = private_key.public_key()
 
-signed.validate(public_key)  # True, or raises pw.MsgValidationError
+signed.validate_signature(public_key)  # True, or raises pw.MsgValidationError
 ```
 
 ## Receiving and verifying from another domain
@@ -67,10 +67,10 @@ received = pw.Msg.parse(raw_message)
 # Recommended: let PollyWeb resolve the sender's DKIM key from DNS
 # using received.From + received.Selector.
 # This requires the sender domain to publish the DKIM TXT record with DNSSEC enabled.
-received.validate()  # True, or raises pw.MsgValidationError
+received.validate_signature()  # True, or raises pw.MsgValidationError
 ```
 
-The DNS lookup used by `validate()` is:
+The DNS lookup used by `validate_signature()` is:
 
 ```text
 {Selector}._domainkey.pw.{From}
@@ -91,7 +91,7 @@ v=DKIM1; k=ed25519; p=<base64-encoded public key>
 If you already trust or cache the sender's public key, you can validate without DNS:
 
 ```python
-received.validate(public_key)
+received.validate_signature(public_key)
 ```
 
 ---
@@ -113,137 +113,20 @@ received.validate(public_key)
 | `Hash` | `str \| None` | — | `None` | SHA-256 hex digest of the canonical form. Set by `sign()`. |
 | `Signature` | `str \| None` | — | `None` | Base64-encoded Ed25519 signature. Set by `sign()`. |
 
-`validate()` requires `From`, `To`, `Subject`, `Correlation`, `Timestamp`, and `Selector` to be non-empty, so messages must have those fields populated (directly or via [`Domain.sign()`](domain.md)) before validation.
+`validate_signature()` and `validate_unsigned()` always require `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. `Selector` is required only when signature validation needs DNS to resolve the sender key.
 
 ---
 
 ## Methods
 
-### `msg.canonical() → bytes`
-
-Returns the canonical JSON bytes used for hashing and signing.
-
-The canonical form contains only `Schema`, `Header`, and `Body` — never `Hash` or `Signature`. Keys are sorted and serialised with no whitespace (JCS, RFC 8785).
-
-```python
-msg.canonical()
-# b'{"Body":{"text":"hi"},"Header":{"Correlation":"...","Selector":"pw1","From":"sender.dom",...}}'
-```
-
-### `msg.sign(private_key: Ed25519PrivateKey) → Msg`
-
-Returns a **new** `Msg` with `Hash` and `Signature` set. The original is unchanged.
-
-```python
-signed = msg.sign(private_key)
-assert msg.Hash is None       # original untouched
-assert signed.Hash is not None
-```
-
-Internally: `SHA-256(canonical())` → `Hash`; `Ed25519.sign(canonical())` → base64 → `Signature`.
-
-If you are signing through a [`Domain`](domain.md), prefer [`Domain.sign()`](domain.md), which fills in `From` and derives `Selector` from the current DNS/public-key state before signing with the domain's [`KeyPair`](keypair.md).
-
-### `msg.validate(public_key: Ed25519PublicKey | None = None, *, verify_signature: bool = True) → bool`
-
-Validates message structure and, by default, the signature. Returns `True` on success, raises `MsgValidationError` otherwise.
-
-`public_key` is optional. When omitted, the key is fetched from DNS using the
-message's `Selector` and `From` domain:
-
-```
-{Selector}._domainkey.pw.{From}  (DNS TXT record)
-```
-
-The TXT record must follow the standard DKIM wire format:
-`v=DKIM1; k=ed25519; p=<base64-encoded public key>`
-
-**DNSSEC is required** — the DNS response must have the Authenticated Data (AD)
-flag set. If the domain has not enabled DNSSEC, validation fails with
-`MsgValidationError("DNSSEC not enabled for …")`.
-
-Set `verify_signature=False` to validate the canonical hash and required message
-fields without requiring `Selector`, `Signature`, or a public key. This is
-intended for flows where the receiving domain chooses how to handle messages
-such as `From="Anonymous"` after routing them by `Subject`.
-
-Checks performed in order:
-
-1. `Schema` matches `pollyweb.org/MSG:1.0`
-2. Required header fields are non-empty: always `From`, `To`, `Subject`, `Correlation`, `Timestamp`; also `Selector` when `verify_signature=True`
-3. `Hash` is present
-4. When `verify_signature=True`, `Signature` is present
-5. `SHA-256(canonical())` matches stored `Hash`
-6. When `verify_signature=True` and no `public_key` is supplied: resolve from DNS (DNSSEC required)
-7. When `verify_signature=True`, the Ed25519 signature verifies against `canonical()`
-
-```python
-# Explicit key (no DNS lookup)
-signed.validate(public_key)
-
-# Explicit key from a KeyPair
-signed.validate(pair.PublicKey)
-
-# Key resolved from DNS (requires DNSSEC on sender.dom)
-signed.validate()
-
-# Hash-only validation for an anonymous message
-anonymous.validate(verify_signature=False)
-```
-
-To inspect the sender domain's DNS configuration separately from message
-validation, use [`DNS.check()`](dns.md).
-
-### `msg.to_dict() → dict`
-
-Serialises to a Python dict matching the wire format (ready for `json.dumps`).
-
-```python
-{
-    "Header": {
-        "From": "sender.dom",
-        "To": "receiver.dom",
-        "Subject": "Hello@Host",
-        "Correlation": "3fa85f64-...",
-        "Timestamp": "2025-06-01T12:00:00.000Z",
-        "Selector": "pw1",
-        "Schema": "pollyweb.org/MSG:1.0"
-    },
-    "Body": {"text": "hi"},
-    "Hash": "ee6ca2a4...",
-    "Signature": "Lw7sQp6z..."
-}
-```
-
-`Hash` and `Signature` are omitted if `None` (i.e. unsigned messages).
-
-### `Msg.parse(value: Msg | Mapping | str | bytes) → Msg`
-
-Parses a message from any of the common inbound forms:
-
-- another `Msg` instance
-- a wire-format `dict` / mapping
-- JSON text
-- YAML text
-- UTF-8 bytes containing JSON or YAML
-
-```python
-msg = Msg.parse(raw_json)
-msg = Msg.parse(raw_yaml)
-msg = Msg.parse(request_json_dict)
-msg = Msg.parse(existing_msg)
-```
-
-This is the preferred receiver-side entry point because it removes the need to
-call `json.loads(...)` first when the payload arrives as text.
-
-### `Msg.from_dict(d: dict) → Msg`
-
-Deserialises from a dict. Inverse of `to_dict()`.
-
-```python
-msg = Msg.from_dict(request_json_dict)
-```
+- [`msg.canonical() → bytes`](msg/canonical.md) — canonical JCS bytes used for hashing and signing.
+- [`msg.sign(private_key) → Msg`](msg/sign.md) — returns a new signed message with `Hash` and `Signature`.
+- [`msg.validate_signature(public_key=None) → bool`](msg/validate.md) — validates structure, hash, and the Ed25519 signature.
+- [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.
+- [`msg.validate(public_key=None) → bool`](msg/validate.md) — backward-compatible alias for `validate_signature()`.
+- [`msg.to_dict() → dict`](msg/to_dict.md) — serialises the message to the PollyWeb wire-format mapping.
+- [`Msg.parse(value) → Msg`](msg/parse.md) — parses a message from an existing `Msg`, mapping, JSON text, YAML text, or bytes.
+- [`Msg.from_dict(d) → Msg`](msg/from_dict.md) — constructs a `Msg` from a wire-format dictionary.
 
 ---
 
@@ -270,7 +153,7 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 ## Error handling
 
-`MsgValidationError` is raised by `validate()` with a descriptive message:
+`MsgValidationError` is raised by `validate_signature()` and `validate_unsigned()` with a descriptive message:
 
 | Message | Cause |
 |---|---|
@@ -296,4 +179,4 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 **CamelCase fields** — Field names on `Msg` match the wire-format names (e.g. `From`, `To`, `Subject`) for consistency between the Python API and the JSON representation.
 
-**`From` and `Selector` are optional at construction** — They default to `""` so that a `Msg` can be built without knowing the sender. [`Domain.sign()`](domain.md) fills them in automatically, deriving `Selector` from [`Domain.dns()`](domain.md). `validate()` still requires them to be non-empty.
+**`From` and `Selector` are optional at construction** — They default to `""` so that a `Msg` can be built without knowing the sender. [`domain.sign()`](domain/sign.md) fills them in automatically, deriving `Selector` from [`domain.dns()`](domain/dns.md). `validate_signature()` requires `Selector` only when it must resolve the sender key from DNS.

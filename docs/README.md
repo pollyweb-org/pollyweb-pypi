@@ -4,10 +4,37 @@ Reference documentation for the `pollyweb` Python package.
 
 ## API guides
 
-- [`Domain`](domain.md) — signing, selector derivation, DNS publishing, and delivery
-- [`DNS`](dns.md) — compliance checks for published PollyWeb DKIM records
-- [`KeyPair`](keypair.md) — Ed25519 key generation, DKIM export, and PEM export
-- [`Msg`](msg.md) — message creation, signing, parsing, serialization, and validation
+- [`Domain`](domain.md) — signing authority overview, fields, and method links
+- [`DNS`](dns.md) — DNS inspection overview and method links
+- [`KeyPair`](keypair.md) — key material overview, property docs, and method links
+- [`Msg`](msg.md) — message envelope overview, fields, and method links
+
+## Method reference
+
+### `Domain`
+
+- [`domain.dns()`](domain/dns.md)
+- [`domain.sign()`](domain/sign.md)
+- [`domain.send()`](domain/send.md)
+
+### `DNS`
+
+- [`dns.check()`](dns/check.md)
+
+### `KeyPair`
+
+- [`pair.dkim()`](keypair/dkim.md)
+- [`pair.private_pem_bytes()`](keypair/private_pem_bytes.md)
+- [`pair.public_pem_bytes()`](keypair/public_pem_bytes.md)
+
+### `Msg`
+
+- [`msg.canonical()`](msg/canonical.md)
+- [`msg.sign()`](msg/sign.md)
+- [`msg.validate()`](msg/validate.md)
+- [`msg.to_dict()`](msg/to_dict.md)
+- [`Msg.parse()`](msg/parse.md)
+- [`Msg.from_dict()`](msg/from_dict.md)
 
 ## Quick start
 

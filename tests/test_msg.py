@@ -176,44 +176,59 @@ class TestSign:
 
 class TestValidate:
     def test_round_trip(self, signed, public_key):
+        assert signed.validate_signature(public_key) is True
+
+    def test_uuid_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
+        sender_id = "123e4567-e89b-12d3-a456-426614174000"
+        msg = pw.Msg(
+            From=sender_id,
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"greeting": "hi"},
+        )
+        signed = msg.sign(private_key)
+        assert signed.Selector == ""
+        assert signed.validate_signature(private_key.public_key()) is True
+
+    def test_validate_alias_still_works(self, signed, public_key):
         assert signed.validate(public_key) is True
 
     def test_round_trip_without_signature_verification(self, signed):
-        assert signed.validate(verify_signature=False) is True
+        assert signed.validate_unsigned() is True
 
     def test_tampered_body(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
-            replace(signed, Body={"greeting": "bye"}).validate(public_key)
+            replace(signed, Body={"greeting": "bye"}).validate_signature(public_key)
 
     def test_tampered_header(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
-            replace(signed, Subject="Evil@Host").validate(public_key)
+            replace(signed, Subject="Evil@Host").validate_signature(public_key)
 
     def test_missing_hash(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
-            replace(signed, Hash=None).validate(public_key)
+            replace(signed, Hash=None).validate_signature(public_key)
 
     def test_missing_signature(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Missing Signature"):
-            replace(signed, Signature=None).validate(public_key)
+            replace(signed, Signature=None).validate_signature(public_key)
 
     def test_missing_signature_allowed_when_not_verifying_signature(self, signed):
-        assert replace(signed, Signature=None).validate(verify_signature=False) is True
+        assert replace(signed, Signature=None).validate_unsigned() is True
 
     def test_wrong_public_key(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
-            signed.validate(Ed25519PrivateKey.generate().public_key())
+            signed.validate_signature(Ed25519PrivateKey.generate().public_key())
 
     def test_unsupported_schema(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Unsupported schema"):
-            replace(signed, Schema="pollyweb.org/MSG:99.0").validate(public_key)
+            replace(signed, Schema="pollyweb.org/MSG:99.0").validate_signature(public_key)
 
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
             From="a.dom", To="b.dom", Subject="", Selector="pw1", Body={},
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
-            signed_env.validate(public_key)
+            signed_env.validate_signature(public_key)
 
     def test_missing_selector_allowed_when_not_verifying_signature(self):
         msg = pw.Msg(
@@ -223,11 +238,15 @@ class TestValidate:
             Body={"greeting": "hi"},
         )
         hashed = replace(msg, Hash=hashlib.sha256(msg.canonical()).hexdigest())
-        assert hashed.validate(verify_signature=False) is True
+        assert hashed.validate_unsigned() is True
 
-    def test_missing_selector_still_rejected_when_verifying_signature(self, signed, public_key):
+    def test_tampered_selector_fails_even_with_explicit_public_key(self, signed, public_key):
+        with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
+            replace(signed, Selector="").validate_signature(public_key)
+
+    def test_missing_selector_required_when_dns_lookup_is_needed(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
-            replace(signed, Selector="").validate(public_key)
+            replace(signed, Selector="").validate_signature()
 
     def test_anonymous_message_can_validate_without_signature(self):
         msg = pw.Msg(
@@ -238,7 +257,7 @@ class TestValidate:
         )
         canonical = msg.canonical()
         hashed = replace(msg, Hash=hashlib.sha256(canonical).hexdigest())
-        assert hashed.validate(verify_signature=False) is True
+        assert hashed.validate_unsigned() is True
 
     def test_anonymous_message_still_requires_hash(self):
         msg = pw.Msg(
@@ -248,7 +267,7 @@ class TestValidate:
             Body={"greeting": "hi"},
         )
         with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
-            msg.validate(verify_signature=False)
+            msg.validate_unsigned()
 
 
 # ---------------------------------------------------------------------------

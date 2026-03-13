@@ -31,52 +31,10 @@ signed.validate(pair.PublicKey)  # True
 |---|---|---|
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
 | `KeyPair` | [`KeyPair`](keypair.md) | Holds the Ed25519 private/public key pair used for signing. |
-| `Selector` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](#domainsignmsg--msg) derives the selector from [`domain.dns()`](#domaindns--selector-txt). |
+| `Selector` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](domain/sign.md) derives the selector from [`domain.dns()`](domain/dns.md). |
 
-## `domain.sign(msg) → Msg`
+## Methods
 
-Returns a new [`Msg`](msg.md) with `From`, derived `Selector`, `Hash`, and `Signature` set. The original is never modified. Any existing `From`/`Selector` on the message are overwritten.
-
-`sign()` calls [`domain.dns()`](#domaindns--selector-txt) and writes the returned selector into [`Msg.Selector`](msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain.
-
-The `Domain.Selector` constructor field is therefore informational/backward-compatible only. The canonical flow is:
-
-```python
-dns_record = domain.dns()       # {"pw1": "v=DKIM1; k=ed25519; p=..."}
-selector = next(iter(dns_record))
-signed = domain.sign(msg)       # signed.Selector == selector
-```
-
-## `domain.dns() → {selector: txt}`
-
-Determines the correct DKIM selector and TXT record to publish for this domain.
-
-Probes `pw{n}._domainkey.pw.{Name}` in DNS starting at n=1, stepping until the first missing entry, then applies:
-
-| Situation | Result |
-|---|---|
-| No `pw*` entries found | `{"pw1": <TXT for current key>}` |
-| Last entry matches current public key | Existing `{selector: txt}` from DNS |
-| Last entry uses a different key (fresh key) | `{"pw{last+1}": <TXT for current key>}` |
-| Last entry uses a different key, but current key appeared in an older entry | Raises `ValueError` — reusing a revoked key is not allowed |
-
-```python
-dns_record = domain.dns()
-# {"pw1": "v=DKIM1; k=ed25519; p=<base64>"}
-# Publish the TXT value at:
-#   {selector}._domainkey.pw.{domain.Name}
-```
-
-If you want to audit what is already published in DNS, use [`DNS.check()`](dns.md)
-instead of `Domain.dns()`. `Domain.dns()` is for deciding what record should be
-published next for the current signing key.
-
-## `domain.send(msg) → Msg`
-
-Signs `msg` (same as `domain.sign`) and POSTs it to `https://pw.{msg.To}/inbox` as JSON. Returns the signed [`Msg`](msg.md).
-
-```python
-signed = domain.send(msg)   # signs and delivers in one step
-```
-
-The request body is the wire-format JSON produced by `signed.to_dict()`. Raises `urllib.error.URLError` (or a subclass) if the HTTP request fails.
+- [`domain.dns() → {selector: txt}`](domain/dns.md) — derives the next DKIM selector and TXT record to publish.
+- [`domain.sign(msg) → Msg`](domain/sign.md) — returns a new message with `From`, derived `Selector`, `Hash`, and `Signature`.
+- [`domain.send(msg) → Msg`](domain/send.md) — signs a message and POSTs it to the receiver inbox.
