@@ -4,6 +4,13 @@
 
 A neutral, open, and global web protocol that allows any person or AI agent to chat with any business, place, or thing.
 
+Core APIs:
+
+- `pw.KeyPair` generates Ed25519 signing keys.
+- `pw.Domain` signs outbound messages and determines the DNS record to publish.
+- `pw.DNS` checks whether a domain's PollyWeb DKIM DNS records are compliant.
+- `pw.Msg` creates, signs, serializes, and validates messages.
+
 ## Git push guard (tests + security audit)
 
 This repository includes a `pre-push` hook at `.githooks/pre-push` that runs

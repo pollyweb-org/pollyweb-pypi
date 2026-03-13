@@ -2,7 +2,7 @@
 
 A named sender that holds a [`KeyPair`](keypair.md) and signs outbound [`Msg`](msg.md) instances.
 
-**See also:** [`KeyPair`](keypair.md), [`Msg`](msg.md)
+**See also:** [`DNS`](dns.md), [`KeyPair`](keypair.md), [`Msg`](msg.md)
 
 ## Usage
 
@@ -66,6 +66,10 @@ dns_record = domain.dns()
 # Publish the TXT value at:
 #   {selector}._domainkey.pw.{domain.Name}
 ```
+
+If you want to audit what is already published in DNS, use [`DNS.check()`](dns.md)
+instead of `Domain.dns()`. `Domain.dns()` is for deciding what record should be
+published next for the current signing key.
 
 ## `domain.send(msg) → Msg`
 

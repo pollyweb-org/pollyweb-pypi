@@ -2,7 +2,7 @@
 
 `pollyweb.msg` implements the PollyWeb message envelope (`pollyweb.org/MSG:1.0`): a signed, tamper-evident JSON structure that domains exchange to communicate securely.
 
-**See also:** [`Domain`](domain.md), [`KeyPair`](keypair.md)
+**See also:** [`DNS`](dns.md), [`Domain`](domain.md), [`KeyPair`](keypair.md)
 
 ---
 
@@ -126,6 +126,9 @@ signed.validate(pair.PublicKey)
 # Key resolved from DNS (requires DNSSEC on sender.dom)
 signed.validate()
 ```
+
+To inspect the sender domain's DNS configuration separately from message
+validation, use [`DNS.check()`](dns.md).
 
 ### `msg.to_dict() → dict`
 

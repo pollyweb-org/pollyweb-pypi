@@ -2,7 +2,7 @@
 
 `pollyweb.keypair` provides the Ed25519 key material used by [`Domain`](domain.md) and [`Msg`](msg.md): a private signing key plus its derived public verification key.
 
-**See also:** [`Domain`](domain.md), [`Msg`](msg.md)
+**See also:** [`DNS`](dns.md), [`Domain`](domain.md), [`Msg`](msg.md)
 
 ---
 
@@ -91,6 +91,9 @@ Publish the returned string as a DNS TXT record at:
 ```
 
 If you are managing a full PollyWeb sending domain, prefer [`domain.dns()`](domain.md), which determines the correct selector and returns a `{selector: txt}` mapping. `Domain.sign()` uses that derived selector when populating `Msg.Selector`.
+
+If you only need to inspect whether published DNS is compliant, use
+[`DNS.check()`](dns.md).
 
 You can override the version tag if needed:
 

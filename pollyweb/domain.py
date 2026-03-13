@@ -1,11 +1,10 @@
 """PollyWeb Domain — signing authority for outbound messages."""
 
-import base64
 import json
 from dataclasses import dataclass, replace
-
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from pollyweb.dns import fetch_dkim_entries
 from pollyweb.keypair import KeyPair
 from pollyweb.msg import Msg
 
@@ -28,39 +27,7 @@ class Domain:
           unless the current key already appears in an older entry, which raises
           ``ValueError`` (reusing a revoked key is not allowed).
         """
-        import dns.resolver
-
-        def _fetch(selector):
-            dns_name = f"{selector}._domainkey.pw.{self.Name}"
-            try:
-                answers = dns.resolver.resolve(dns_name, "TXT")
-            except Exception:
-                return None
-            for rdata in answers:
-                txt = b"".join(rdata.strings).decode("utf-8")
-                params = {}
-                for part in txt.split(";"):
-                    part = part.strip()
-                    if "=" in part:
-                        k, v = part.split("=", 1)
-                        params[k.strip()] = v.strip()
-                p = params.get("p", "")
-                if p:
-                    try:
-                        raw = base64.b64decode(p)
-                        return selector, raw, txt
-                    except Exception:
-                        pass
-            return None
-
-        entries = []
-        i = 1
-        while True:
-            result = _fetch(f"pw{i}")
-            if result is None:
-                break
-            entries.append(result)
-            i += 1
+        entries = fetch_dkim_entries(self.Name, require_dnssec=False)
 
         current_raw = self.KeyPair.PublicKey.public_bytes(Encoding.Raw, PublicFormat.Raw)
 

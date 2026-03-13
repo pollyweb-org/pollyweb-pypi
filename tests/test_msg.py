@@ -465,3 +465,70 @@ class TestDomainDNS:
         with patch("dns.resolver.resolve", side_effect=_resolve):
             with pytest.raises(ValueError, match="already used"):
                 domain.dns()
+
+
+class TestDNS:
+    def test_check_returns_false_when_no_entries_exist(self):
+        import dns.resolver as _r
+
+        dns = pw.DNS(Name="origin.dom")
+        with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
+            report = dns.check()
+
+        assert report["summary"]["domain"] == "origin.dom"
+        assert report["summary"]["selector"] is None
+        assert report["summary"]["compliant"] is False
+        assert report["table"] == [{
+            "selector": None,
+            "status": "missing",
+            "compliant": False,
+            "record": None,
+            "message": "No PollyWeb DKIM selectors found",
+        }]
+
+    def test_check_returns_true_for_valid_selector(self, keypair):
+        dns = pw.DNS(Name="origin.dom")
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(keypair.PublicKey)):
+            report = dns.check("pw1")
+
+        assert report["summary"]["selector"] == "pw1"
+        assert report["summary"]["compliant"] is True
+        assert report["table"] == [{
+            "selector": "pw1",
+            "status": "ok",
+            "compliant": True,
+            "record": keypair.dkim(),
+            "message": None,
+        }]
+
+    def test_check_requires_dnssec(self, keypair):
+        dns = pw.DNS(Name="origin.dom")
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(keypair.PublicKey, ad_flag=False)):
+            report = dns.check("pw1")
+
+        assert report["summary"]["compliant"] is False
+        assert report["table"][0]["selector"] == "pw1"
+        assert report["table"][0]["status"] == "error"
+        assert report["table"][0]["compliant"] is False
+        assert report["table"][0]["record"] is None
+        assert "DNSSEC not enabled" in report["table"][0]["message"]
+
+    def test_check_rejects_duplicate_keys_across_selectors(self, keypair):
+        dns = pw.DNS(Name="origin.dom")
+
+        def _resolve(name, rdtype):
+            if "pw1._domainkey" in name or "pw2._domainkey" in name:
+                return _dkim_dns_answer(keypair.PublicKey)
+            import dns.resolver as _r
+            raise _r.NXDOMAIN
+
+        with patch("dns.resolver.resolve", side_effect=_resolve):
+            report = dns.check()
+
+        assert report["summary"]["compliant"] is False
+        assert report["table"][-1]["selector"] == "pw2"
+        assert report["table"][-1]["status"] == "error"
+        assert report["table"][-1]["compliant"] is False
+        assert "reused" in report["table"][-1]["message"]
