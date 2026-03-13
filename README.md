@@ -33,11 +33,12 @@ The repository also includes a GitHub Actions workflow at
   test job passes.
 - Package versions are generated automatically from Git metadata via
   `setuptools-scm`. The publish workflow turns the latest `v*` tag into a
-  stable release version, using `.postN` for later pushes on `main`.
+  stable release version, incrementing the patch number for later pushes on
+  `main`.
 
 To make publishing work, configure PyPI to trust this GitHub repository via
 Trusted Publishing, or adjust the workflow to use a `PYPI_API_TOKEN` secret.
 
 For clean public versions, create and push a starting Git tag such as `v1.0.0`.
-After that, later commits publish stable versions such as `1.0.0.post1`,
-`1.0.0.post2`, and so on, until the next release tag is created.
+After that, later commits publish stable versions such as `1.0.1`, `1.0.2`,
+and so on, until the next release tag is created.

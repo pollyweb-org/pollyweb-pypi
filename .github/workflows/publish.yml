@@ -58,10 +58,13 @@ jobs:
           BASE_TAG="$(git describe --tags --abbrev=0 --match 'v*')"
           BASE_VERSION="${BASE_TAG#v}"
           DISTANCE="$(git rev-list "${BASE_TAG}..HEAD" --count)"
+          IFS='.' read -r MAJOR MINOR PATCH <<EOF
+          $BASE_VERSION
+          EOF
           if [ "$DISTANCE" -eq 0 ]; then
             VERSION="$BASE_VERSION"
           else
-            VERSION="${BASE_VERSION}.post${DISTANCE}"
+            VERSION="${MAJOR}.${MINOR}.$((PATCH + DISTANCE))"
           fi
           echo "Publishing version ${VERSION}"
           export SETUPTOOLS_SCM_PRETEND_VERSION="$VERSION"
