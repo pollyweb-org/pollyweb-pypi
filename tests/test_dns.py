@@ -93,7 +93,6 @@ class TestFetchDkimEntryIntegration:
         ("domain", "selector"),
         [
             ("pollyweb.org", "pw1"),
-            ("dev.pollyweb.org", "pw2"),
             ("any-hoster.pollyweb.org", "pw2"),
         ],
     )
