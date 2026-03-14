@@ -76,7 +76,9 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
 
     dns_name = f"{selector}._domainkey.pw.{domain}"
     try:
-        answers = dns.resolver.resolve(dns_name, "TXT")
+        resolver = dns.resolver.Resolver()
+        resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
+        answers = resolver.resolve(dns_name, "TXT")
     except Exception as exc:
         raise MsgValidationError(f"DKIM lookup failed for {dns_name}: {exc}") from exc
 

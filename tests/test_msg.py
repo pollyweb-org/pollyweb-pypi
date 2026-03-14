@@ -53,6 +53,12 @@ def _dkim_dns_answer(public_key, *, ad_flag: bool = True, key_type: str = "ed255
     return answer
 
 
+def _mock_dns_resolver(answer):
+    resolver = MagicMock()
+    resolver.resolve.return_value = answer
+    return patch("dns.resolver.Resolver", return_value=resolver), resolver
+
+
 def _sign_legacy_ed25519(msg, private_key):
     canonical = msg.canonical()
     return replace(
@@ -300,7 +306,8 @@ class TestSend:
     def test_posts_to_receiver_inbox_and_returns_response(self, signed, public_key):
         response = object()
 
-        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
+        resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
+        with resolver_patch:
             with patch("urllib.request.urlopen", return_value=response) as urlopen:
                 result = signed.send()
 
@@ -314,18 +321,20 @@ class TestSend:
     def test_send_verifies_signature_before_posting_domain_targets(self, signed, public_key):
         response = object()
 
-        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)) as resolve:
+        resolver_patch, resolver = _mock_dns_resolver(_dkim_dns_answer(public_key))
+        with resolver_patch:
             with patch("urllib.request.urlopen", return_value=response) as urlopen:
                 result = signed.send()
 
         assert result is response
-        resolve.assert_called_once()
+        resolver.resolve.assert_called_once()
         urlopen.assert_called_once()
 
     def test_send_rejects_invalid_domain_target_signature_before_posting(self, signed):
         tampered = replace(signed, Signature=base64.b64encode(b"bad-signature").decode("ascii"))
 
-        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(pw.KeyPair().PublicKey)):
+        resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(pw.KeyPair().PublicKey))
+        with resolver_patch:
             with patch("urllib.request.urlopen") as urlopen:
                 with pytest.raises(pw.MsgValidationError):
                     tampered.send()
@@ -1126,7 +1135,8 @@ class TestKeyPair:
         answer.__iter__ = lambda self: iter([rdata])
         answer.response = response
 
-        with patch("dns.resolver.resolve", return_value=answer):
+        resolver_patch, _ = _mock_dns_resolver(answer)
+        with resolver_patch:
             assert signed.verify() is True
 
     def test_domain_with_keypair(self):
@@ -1196,7 +1206,8 @@ class TestDomain:
         response = object()
 
         with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
-            with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(public_key)):
+            resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
+            with resolver_patch:
                 with patch("urllib.request.urlopen", return_value=response):
                     result = domain.send(msg)
 
