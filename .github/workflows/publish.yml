@@ -31,7 +31,7 @@ jobs:
           python -m pip install . pytest build
 
       - name: Run test suite
-        run: python -m pytest
+        run: python -m pytest -m "not live_dns"
 
   publish:
     needs: test
