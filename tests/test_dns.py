@@ -89,11 +89,19 @@ class TestFetchDkimEntryIntegration:
         with pytest.raises(ValueError, match=r"DNSSEC validation failed for pw\.cloudflare\.com"):
             fetch_dkim_entry("cloudflare.com", "pw1", require_dnssec=True)
 
-    def test_pollyweb_org_dns_must_validate_and_resolve(self):
+    @pytest.mark.parametrize(
+        ("domain", "selector"),
+        [
+            ("pollyweb.org", "pw1"),
+            ("dev.pollyweb.org", "pw2"),
+            ("any-hoster.pollyweb.org", "pw2"),
+        ],
+    )
+    def test_pollyweb_domains_dns_must_validate_and_resolve(self, domain, selector):
         try:
-            key, key_type = _resolve_dkim_public_key("pollyweb.org", "pw1")
+            key, key_type = _resolve_dkim_public_key(domain, selector)
         except MsgValidationError as exc:
-            pytest.fail(f"pollyweb.org DNS is misconfigured: {exc}")
+            pytest.fail(f"{domain} DNS is misconfigured: {exc}")
 
         assert key_type == "ed25519"
         assert key is not None
@@ -119,11 +127,11 @@ class TestDNSCheckIntegration:
         assert report["table"][0]["status"] == "error"
         assert "DNSSEC validation failed for pw.google.com" in report["table"][0]["message"]
 
-    def test_check_reports_dnssec_branch_failure_for_pollyweb_org(self):
+    def test_check_reports_dnssec_branch_success_for_pollyweb_org(self):
         dns = DNS(Name="pollyweb.org")
         report = dns.check("pw1")
 
-        assert report["summary"]["compliant"] is False
-        assert report["table"][0]["status"] == "error"
-        assert "DNSSEC validation failed for pw.pollyweb.org" in report["table"][0]["message"]
-        assert "SERVFAIL" in report["table"][0]["message"]
+        assert report["summary"]["compliant"] is True
+        assert report["table"][0]["status"] == "ok"
+        assert report["table"][0]["compliant"] is True
+        assert report["table"][0]["message"] is None
