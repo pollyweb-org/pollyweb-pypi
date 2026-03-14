@@ -85,7 +85,7 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
             validate_pollyweb_branch(resolver, domain)
         except ValueError as exc:
             raise MsgValidationError(
-                f"DNSSEC validation failed for {branch}: cannot trust PollyWeb branch"
+                f"DNSSEC validation failed for {branch}: cannot trust PollyWeb branch ({exc})"
             ) from exc
         answers = resolver.resolve(dns_name, "TXT")
     except Exception as exc:

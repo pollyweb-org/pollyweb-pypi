@@ -43,12 +43,18 @@ def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Opt
     import dns.resolver
 
     dns_name = dkim_dns_name(domain, selector)
+    resolver = dns.resolver.Resolver()
     try:
-        resolver = dns.resolver.Resolver()
         if require_dnssec:
             # Enable EDNS with DO flag to request DNSSEC validation
             resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
             validate_pollyweb_branch(resolver, domain)
+    except ValueError:
+        raise
+    except Exception:
+        return None
+
+    try:
         answers = resolver.resolve(dns_name, "TXT")
     except Exception:
         return None
