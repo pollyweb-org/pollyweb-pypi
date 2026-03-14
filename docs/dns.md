@@ -3,6 +3,7 @@
 `pollyweb.dns` provides read-only DNS inspection helpers for PollyWeb domains.
 Use [`DNS`](../pollyweb/dns.py) when you want to verify whether a domain's
 published DKIM records are compliant without holding the private signing key.
+It currently validates `ed25519` and `rsa` PollyWeb DKIM key types.
 
 **See also:** [`Domain`](domain.md), [`Msg`](msg.md)
 

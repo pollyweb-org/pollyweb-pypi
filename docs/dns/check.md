@@ -12,9 +12,14 @@ The validation requires:
 
 - DNSSEC enabled on the response (`AD` flag set)
 - `v=DKIM1`
-- `k=ed25519`
-- a valid base64 Ed25519 public key in `p=...`
+- a supported `k=` value
+- a valid base64 public key in `p=...` for that key type
 - no reused public keys across multiple selectors
+
+`DNS.check()` currently accepts PollyWeb DKIM records for:
+
+- `k=ed25519`
+- `k=rsa`
 
 ## Return shape
 
@@ -73,7 +78,7 @@ Example multi-row output:
 | selector   | status   | compliant   | record                         | message                      |
 |:-----------|:---------|:------------|:-------------------------------|:-----------------------------|
 | pw1        | ok       | True        | v=DKIM1; k=ed25519; p=...      |                              |
-| pw2        | error    | False       | v=DKIM1; k=ed25519; p=...      | Public key reused in DKIM... |
+| pw2        | error    | False       | v=DKIM1; k=rsa; p=...          | Public key reused in DKIM... |
 ```
 
 ## Result statuses

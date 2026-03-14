@@ -11,8 +11,15 @@ Validates message structure, canonical hash, and signature. Returns `True` on su
 The TXT record must follow the DKIM wire format:
 
 ```text
-v=DKIM1; k=ed25519; p=<base64-encoded public key>
+v=DKIM1; k=<key-type>; p=<base64-encoded public key>
 ```
+
+The message header may also contain `Algorithm`, which identifies the signature algorithm used for `Signature`. PollyWeb currently supports:
+
+- `Algorithm=ed25519-sha256` with `k=ed25519`
+- `Algorithm=rsa-sha256` with `k=rsa`
+
+If `Algorithm` is omitted, `verify()` keeps legacy compatibility for Ed25519 messages by inferring `ed25519-sha256`.
 
 DNSSEC is required. The DNS response must have the `AD` flag set.
 
@@ -29,7 +36,8 @@ If `public_key` is passed explicitly, `Selector` is not required because DNS res
 7. `Signature` must be present
 8. `SHA-256(canonical())` must match the stored `Hash`
 9. When needed, the public key is resolved from DNS with DNSSEC enforcement
-10. The Ed25519 signature must verify against `canonical()`
+10. The signature algorithm must match the DKIM key type when DNS is used
+11. The signature must verify against `canonical()`
 
 ```python
 signed.verify(public_key)

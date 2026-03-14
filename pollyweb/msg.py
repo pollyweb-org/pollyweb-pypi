@@ -11,12 +11,16 @@ from datetime import date, datetime, timezone
 from typing import Any, Dict, Mapping, Optional, Union
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PrivateKey,
-    Ed25519PublicKey,
-)
 import yaml
 
+from pollyweb._crypto import (
+    canonical_signature_algorithm,
+    load_dkim_public_key,
+    sign_message,
+    signature_algorithm_for_private_key,
+    signature_algorithm_for_public_key,
+    verify_signature,
+)
 from pollyweb.schema import Schema
 
 SCHEMA = Schema("pollyweb.org/MSG:1.0")
@@ -56,16 +60,16 @@ def _is_z_timestamp(value: str) -> bool:
     return True
 
 
-def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
-    """Fetch the Ed25519 public key from the DKIM DNS TXT record.
+def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
+    """Fetch the public key from the DKIM DNS TXT record.
 
     Queries ``{selector}._domainkey.pw.{domain}`` for a TXT record in the standard
-    DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``.
+    DKIM wire format: ``v=DKIM1; k=<key-type>; p=<base64>``.
 
     Raises ``MsgValidationError`` if:
     - the DNS lookup fails,
     - DNSSEC is not enabled / the AD flag is not set on the response, or
-    - no valid Ed25519 key is found in the TXT records.
+    - no supported public key is found in the TXT records.
     """
     import dns.flags
     import dns.resolver
@@ -89,18 +93,21 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
             if "=" in part:
                 k, v = part.split("=", 1)
                 params[k.strip()] = v.strip()
+        version = params.get("v", "")
+        if version and version != "DKIM1":
+            continue
+        key_algorithm = params.get("k", "")
         p = params.get("p", "")
-        if not p:
+        if not key_algorithm or not p:
             continue
         try:
-            raw = base64.b64decode(p)
-            return Ed25519PublicKey.from_public_bytes(raw)
+            return load_dkim_public_key(key_algorithm, p), key_algorithm
         except Exception as exc:
             raise MsgValidationError(
-                f"Invalid Ed25519 key in DKIM TXT at {dns_name}: {exc}"
+                f"Invalid {key_algorithm} key in DKIM TXT at {dns_name}: {exc}"
             ) from exc
 
-    raise MsgValidationError(f"No Ed25519 public key found in DKIM TXT at {dns_name}")
+    raise MsgValidationError(f"No supported DKIM public key found in TXT at {dns_name}")
 
 
 def _utc_now() -> str:
@@ -197,6 +204,7 @@ class Msg:
     Subject: str
     From: str = ""
     Selector: str = ""
+    Algorithm: str = ""
     Body: Dict[str, Any] = field(default_factory=dict)
     Correlation: str = field(default_factory=lambda: str(uuid.uuid4()))
     Timestamp: str = field(default_factory=_utc_now)
@@ -213,6 +221,11 @@ class Msg:
             object.__setattr__(self, "Schema", self.Schema if isinstance(self.Schema, Schema) else Schema(self.Schema))
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
+        if self.Algorithm:
+            try:
+                object.__setattr__(self, "Algorithm", canonical_signature_algorithm(self.Algorithm))
+            except ValueError as exc:
+                raise MsgValidationError(str(exc)) from exc
         if not _is_uuid_string(self.Correlation):
             raise MsgValidationError("Correlation must be a UUID")
         if not _is_z_timestamp(self.Timestamp):
@@ -238,6 +251,8 @@ class Msg:
         }
         if self.Selector:
             header["Selector"] = self.Selector
+        if self.Algorithm:
+            header["Algorithm"] = self.Algorithm
 
         payload = {
             "Body": self.Body,
@@ -247,12 +262,29 @@ class Msg:
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         ).encode("utf-8")
 
-    def sign(self, private_key: Ed25519PrivateKey) -> "Msg":
-        """Compute hash and Ed25519-sign this msg. Returns a new signed Msg."""
-        canonical = self.canonical()
+    def sign(self, private_key: object) -> "Msg":
+        """Compute hash and sign this msg. Returns a new signed Msg."""
+        try:
+            algorithm = (
+                canonical_signature_algorithm(self.Algorithm)
+                if self.Algorithm
+                else signature_algorithm_for_private_key(private_key)
+            )
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
+        msg = replace(self, Algorithm=algorithm)
+        canonical = msg.canonical()
         hash_hex = hashlib.sha256(canonical).hexdigest()
-        sig_b64 = base64.b64encode(private_key.sign(canonical)).decode("ascii")
-        return replace(self, Hash=hash_hex, Signature=sig_b64)
+        try:
+            signature_bytes, _ = sign_message(
+                private_key,
+                canonical,
+                signature_algorithm=algorithm,
+            )
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
+        sig_b64 = base64.b64encode(signature_bytes).decode("ascii")
+        return replace(msg, Hash=hash_hex, Signature=sig_b64)
 
     def _validate_schema(self) -> None:
         if self.Schema != SCHEMA:
@@ -289,12 +321,12 @@ class Msg:
         self._validate_hash()
         return True
 
-    def verify(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
-        """Validate structure, canonical hash, and Ed25519 signature.
+    def verify(self, public_key: Optional[object] = None) -> bool:
+        """Validate structure, canonical hash, and signature.
 
         If *public_key* is omitted, the key is fetched from DNS using the
         selector and the From domain: ``{Selector}._domainkey.pw.{From}`` (TXT record,
-        DKIM wire format: ``v=DKIM1; k=ed25519; p=<base64>``).
+        DKIM wire format: ``v=DKIM1; k=<key-type>; p=<base64>``).
         """
         self._validate_schema()
         self._validate_required_fields(require_selector=public_key is None)
@@ -303,22 +335,35 @@ class Msg:
         if self.Signature is None:
             raise MsgValidationError("Missing Signature")
 
+        key_type = None
         if public_key is None:
-            public_key = _resolve_dkim_public_key(self.From, self.Selector)
+            public_key, key_type = _resolve_dkim_public_key(self.From, self.Selector)
 
         try:
             sig_bytes = base64.b64decode(self.Signature)
         except Exception as exc:
             raise MsgValidationError(f"Malformed signature: {exc}") from exc
 
+        signature_algorithm = self.Algorithm or None
+        if public_key is not None and signature_algorithm is None:
+            signature_algorithm = signature_algorithm_for_public_key(public_key)
+
         try:
-            public_key.verify(sig_bytes, canonical)
+            verify_signature(
+                public_key,
+                sig_bytes,
+                canonical,
+                signature_algorithm=signature_algorithm,
+                key_type=key_type,
+            )
         except InvalidSignature:
             raise MsgValidationError("Invalid signature")
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
 
         return True
 
-    def validate_signature(self, public_key: Optional[Ed25519PublicKey] = None) -> bool:
+    def validate_signature(self, public_key: Optional[object] = None) -> bool:
         """Backward-compatible alias for :meth:`verify`."""
         return self.verify(public_key)
 
@@ -346,6 +391,8 @@ class Msg:
         }
         if self.Selector:
             header["Selector"] = self.Selector
+        if self.Algorithm:
+            header["Algorithm"] = self.Algorithm
 
         d: Dict[str, Any] = {
             "Header": header,
@@ -396,6 +443,7 @@ class Msg:
             To=h["To"],
             Subject=h["Subject"],
             Selector=h.get("Selector", ""),
+            Algorithm=h.get("Algorithm", ""),
             Body=d.get("Body", {}),
             Correlation=h["Correlation"],
             Timestamp=h["Timestamp"],

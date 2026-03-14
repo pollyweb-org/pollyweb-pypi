@@ -8,6 +8,8 @@ from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
@@ -24,13 +26,20 @@ from pollyweb.msg import SCHEMA
 # DNS mock helpers
 # ---------------------------------------------------------------------------
 
-def _dkim_dns_answer(public_key, *, ad_flag: bool = True):
-    """Return a fake dns.resolver.Answer for the given Ed25519PublicKey."""
+def _dkim_txt_for_public_key(public_key, *, key_type: str):
+    if key_type == "ed25519":
+        raw = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
+    else:
+        raw = public_key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+    p = base64.b64encode(raw).decode("ascii")
+    return f"v=DKIM1; k={key_type}; p={p}"
+
+
+def _dkim_dns_answer(public_key, *, ad_flag: bool = True, key_type: str = "ed25519"):
+    """Return a fake dns.resolver.Answer for the given public key."""
     import dns.flags
 
-    raw = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
-    p = base64.b64encode(raw).decode("ascii")
-    txt_bytes = f"v=DKIM1; k=ed25519; p={p}".encode("utf-8")
+    txt_bytes = _dkim_txt_for_public_key(public_key, key_type=key_type).encode("utf-8")
 
     rdata = MagicMock()
     rdata.strings = [txt_bytes]
@@ -42,6 +51,15 @@ def _dkim_dns_answer(public_key, *, ad_flag: bool = True):
     answer.__iter__ = lambda self: iter([rdata])
     answer.response = response
     return answer
+
+
+def _sign_legacy_ed25519(msg, private_key):
+    canonical = msg.canonical()
+    return replace(
+        msg,
+        Hash=hashlib.sha256(canonical).hexdigest(),
+        Signature=base64.b64encode(private_key.sign(canonical)).decode("ascii"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +134,7 @@ class TestMsg:
         assert env.Correlation == correlation
 
     def test_unsigned_by_default(self, msg):
+        assert msg.Algorithm == ""
         assert msg.Hash is None
         assert msg.Signature is None
 
@@ -187,6 +206,10 @@ class TestMsg:
         ):
             pw.Msg(To="b.dom", Subject="Ping", Schema="not-a-schema")
 
+    def test_algorithm_must_be_supported_when_present(self):
+        with pytest.raises(pw.MsgValidationError, match="Unsupported signature algorithm"):
+            pw.Msg(To="b.dom", Subject="Ping", Algorithm="ml-dsa-87-sha512")
+
 
 # ---------------------------------------------------------------------------
 # Msg.canonical
@@ -226,6 +249,21 @@ class TestCanonical:
         )
         assert "Selector" not in json.loads(msg.canonical())["Header"]
 
+    def test_algorithm_is_omitted_from_canonical_form_when_empty(self):
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+        assert "Algorithm" not in json.loads(msg.canonical())["Header"]
+
+    def test_algorithm_is_included_in_canonical_form_when_present(self):
+        msg = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+            Algorithm="ed25519-sha256",
+            Body={"greeting": "hi"},
+        )
+        assert json.loads(msg.canonical())["Header"]["Algorithm"] == "ed25519-sha256"
+
 
 # ---------------------------------------------------------------------------
 # Msg.sign
@@ -233,12 +271,29 @@ class TestCanonical:
 
 class TestSign:
     def test_hash_and_signature_present(self, signed):
+        assert signed.Algorithm == "ed25519-sha256"
         assert signed.Hash is not None
         assert signed.Signature is not None
 
     def test_original_unchanged(self, msg, signed):
+        assert msg.Algorithm == ""
         assert msg.Hash is None
         assert signed.Hash is not None
+
+    def test_rsa_round_trip(self):
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        msg = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+            Body={"greeting": "hi"},
+        )
+
+        signed = msg.sign(private_key)
+
+        assert signed.Algorithm == "rsa-sha256"
+        assert signed.verify(private_key.public_key()) is True
 
 
 class TestSend:
@@ -303,6 +358,7 @@ class TestValidate:
         )
         signed = msg.sign(private_key)
         assert signed.Selector == ""
+        assert signed.Algorithm == "ed25519-sha256"
         assert signed.verify(private_key.public_key()) is True
 
     def test_round_trip_without_signature_verification(self, signed):
@@ -330,6 +386,20 @@ class TestValidate:
     def test_wrong_public_key(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Invalid signature"):
             signed.verify(Ed25519PrivateKey.generate().public_key())
+
+    def test_legacy_message_without_algorithm_still_validates_with_explicit_ed25519_key(self):
+        private_key = pw.KeyPair().PrivateKey
+        legacy = _sign_legacy_ed25519(
+            pw.Msg(
+                From="sender.dom",
+                To="receiver.dom",
+                Subject="Hello@Host",
+                Selector="pw1",
+                Body={"greeting": "hi"},
+            ),
+            private_key=private_key,
+        )
+        assert legacy.verify(private_key.public_key()) is True
 
     def test_unsupported_schema(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Unsupported schema"):
@@ -431,6 +501,57 @@ class TestValidateDNS:
         with patch("dns.resolver.resolve", return_value=answer):
             assert signed.verify() is True
 
+    def test_legacy_message_without_algorithm_still_validates_from_ed25519_dns(self):
+        private_key = pw.KeyPair().PrivateKey
+        legacy = _sign_legacy_ed25519(
+            pw.Msg(
+                From="sender.dom",
+                To="receiver.dom",
+                Subject="Hello@Host",
+                Selector="pw1",
+                Body={"greeting": "hi"},
+            ),
+            private_key=private_key,
+        )
+
+        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(private_key.public_key())):
+            assert legacy.verify() is True
+
+    def test_rsa_signature_validates_from_dns(self):
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        msg = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+            Body={"greeting": "hi"},
+        )
+        signed = msg.sign(private_key)
+
+        with patch(
+            "dns.resolver.resolve",
+            return_value=_dkim_dns_answer(private_key.public_key(), key_type="rsa"),
+        ):
+            assert signed.verify() is True
+
+    def test_signature_algorithm_must_match_dkim_key_type(self):
+        rsa_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        signed = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+            Body={"greeting": "hi"},
+        ).sign(rsa_private_key)
+        wrong_record = _dkim_dns_answer(pw.KeyPair().PublicKey, key_type="ed25519")
+
+        with patch("dns.resolver.resolve", return_value=wrong_record):
+            with pytest.raises(
+                pw.MsgValidationError,
+                match="Signature algorithm rsa-sha256 does not match DKIM key type ed25519",
+            ):
+                signed.verify()
+
 
 class TestDomainSign:
     def test_domain_sign_derives_selector_from_domain_dns(self, keypair):
@@ -483,6 +604,7 @@ class TestSerialization:
 
     def test_signed_dict_includes_hash_and_signature(self, signed):
         d = signed.to_dict()
+        assert d["Header"]["Algorithm"] == "ed25519-sha256"
         assert "Hash" in d
         assert "Signature" in d
 
@@ -513,6 +635,27 @@ class TestSerialization:
             Body={"greeting": "hi"},
         )
         assert "Selector" not in msg.to_dict()["Header"]
+        assert "Algorithm" not in msg.to_dict()["Header"]
+
+    def test_from_dict_reads_algorithm(self):
+        msg = pw.Msg.from_dict(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Algorithm": "rsa-sha256",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+                "Hash": "abc",
+                "Signature": "def",
+            }
+        )
+        assert msg.Algorithm == "rsa-sha256"
 
     def test_from_dict_defaults_empty_from_to_anonymous(self):
         msg = pw.Msg.from_dict(
@@ -1247,6 +1390,26 @@ class TestDNS:
             "status": "ok",
             "compliant": True,
             "record": keypair.dkim(),
+            "message": None,
+        }]
+
+    def test_check_accepts_rsa_selector(self):
+        dns = pw.DNS(Name="origin.dom")
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+        with patch(
+            "dns.resolver.resolve",
+            return_value=_dkim_dns_answer(private_key.public_key(), key_type="rsa"),
+        ):
+            report = dns.check("pw1")
+
+        assert report["summary"]["selector"] == "pw1"
+        assert report["summary"]["compliant"] is True
+        assert report["table"] == [{
+            "selector": "pw1",
+            "status": "ok",
+            "compliant": True,
+            "record": _dkim_txt_for_public_key(private_key.public_key(), key_type="rsa"),
             "message": None,
         }]
 

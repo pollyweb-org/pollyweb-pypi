@@ -86,6 +86,6 @@ pair.PrivateKey.public_key()
 
 **Public key is derived, not stored separately** — `PublicKey` is computed from `PrivateKey`, so the pair cannot drift out of sync.
 
-**DNS export is raw-key based** — `dkim()` serialises the Ed25519 public key in raw form and base64-encodes it for the `p=` tag, matching the format expected by `Msg.verify()` when resolving keys from DNS.
+**DNS export is raw-key based** — `dkim()` serialises the Ed25519 public key in raw form and base64-encodes it for the `p=` tag. PollyWeb verification now also accepts `rsa` DKIM records, but `KeyPair` remains the Ed25519-specific convenience type.
 
 **PEM export is part of the keypair API** — use `private_pem_bytes()` and `public_pem_bytes()` instead of re-implementing `cryptography` serialization at call sites.

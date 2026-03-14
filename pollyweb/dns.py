@@ -4,7 +4,7 @@ import base64
 from dataclasses import dataclass
 from typing import Optional
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from pollyweb._crypto import KEY_TYPE_LOADERS, load_dkim_public_key
 
 
 def _parse_dkim_txt(txt: str) -> dict[str, str]:
@@ -35,17 +35,18 @@ def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Opt
         params = _parse_dkim_txt(txt)
         if params.get("v") != "DKIM1":
             raise ValueError(f"Unsupported DKIM version in {dns_name}")
-        if params.get("k") != "ed25519":
+        key_type = params.get("k", "").lower()
+        if key_type not in KEY_TYPE_LOADERS:
             raise ValueError(f"Unsupported DKIM key algorithm in {dns_name}")
         p = params.get("p", "")
         if not p:
             continue
         try:
             raw = base64.b64decode(p)
-            Ed25519PublicKey.from_public_bytes(raw)
+            load_dkim_public_key(key_type, p)
             return selector, raw, txt
         except Exception as exc:
-            raise ValueError(f"Invalid Ed25519 key in {dns_name}: {exc}") from exc
+            raise ValueError(f"Invalid {key_type} key in {dns_name}: {exc}") from exc
     return None
 
 
