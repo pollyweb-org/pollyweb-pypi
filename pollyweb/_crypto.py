@@ -137,6 +137,26 @@ def sign_message(private_key: object, message: bytes, *, signature_algorithm: Op
     return spec.sign(private_key, message), algorithm_name
 
 
+def encode_signature(signature: bytes) -> str:
+    if not isinstance(signature, bytes):
+        raise TypeError("Signature must be bytes")
+    return base64.b64encode(signature).decode("ascii")
+
+
+def encode_dkim_public_key(public_key: object) -> str:
+    try:
+        raw = public_key.public_bytes_raw()
+    except AttributeError as exc:
+        raise TypeError("Expected a public key with public_bytes_raw()") from exc
+    return base64.b64encode(raw).decode("ascii")
+
+
+def decode_ascii_envelope(value: str) -> bytes:
+    if not isinstance(value, str):
+        raise TypeError("Encoded value must be a string")
+    return base64.b64decode(value)
+
+
 def verify_signature(
     public_key: object,
     signature: bytes,

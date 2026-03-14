@@ -133,6 +133,11 @@ received.verify(public_key)
 
 - [`msg.canonical() → bytes`](msg/canonical.md) — canonical JCS bytes used for hashing and signing.
 - [`msg.sign(private_key) → Msg`](msg/sign.md) — returns a new signed message with `Algorithm`, `Hash`, and `Signature`.
+- `msg.sign_with(signer, signature_algorithm=...) -> Msg` — signs via an external signer callable such as AWS KMS and returns a new signed message with `Algorithm`, `Hash`, and `Signature`.
+- `msg.with_signature(signature, signature_algorithm=None) -> Msg` — attaches externally produced signature bytes and derives `Hash` and base64 `Signature`.
+- `pollyweb.dkim_public_key_value(public_key) -> str` — returns the DKIM `p=` value for an Ed25519 public key.
+- `pollyweb.decode_transport_bytes(value) -> bytes` — decodes an ASCII-armored transport payload into raw bytes.
+- `pollyweb.decode_transport_text(value, errors="strict") -> str` — decodes an ASCII-armored transport payload into UTF-8 text.
 - [`msg.send() → HTTPResponse`](msg/send.md) — validates the message and POSTs it to the receiver inbox.
 - [`msg.verify(public_key=None) → bool`](msg/verify.md) — validates structure, hash, and the configured signature algorithm.
 - [`msg.verify_details(public_key=None) → VerificationDetails`](msg/verify_details.md) — validates the message and returns the verified fields as structured data.
@@ -198,6 +203,8 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 **Algorithm agility** — PollyWeb now stores the signature algorithm in `Header.Algorithm` and validates it against the DKIM key type (`k=`) published in DNS. This matches the direction of standard DKIM, where the signature algorithm and DNS key type are related but distinct pieces of metadata.
 
 **Ed25519 remains the default sender path** — [`KeyPair`](keypair.md) and [`Domain`](domain.md) still generate Ed25519 keys and publish `k=ed25519` DKIM records. `Msg.sign()` also supports RSA private keys and emits `Algorithm=rsa-sha256`.
+
+**External signers are supported** — Use `Msg.sign_with(...)` when the private key lives behind a service such as AWS KMS. PollyWeb still owns canonicalization, hashing, algorithm normalization, and base64 wire encoding; the external signer only needs to return raw signature bytes for the canonical payload.
 
 **JCS canonicalisation** — Keys are sorted and whitespace is removed before hashing, following RFC 8785. This guarantees the same bytes regardless of how the dict was constructed.
 

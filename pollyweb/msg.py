@@ -14,6 +14,9 @@ from cryptography.exceptions import InvalidSignature
 import yaml
 
 from pollyweb._crypto import (
+    decode_ascii_envelope,
+    encode_signature,
+    encode_dkim_public_key,
     canonical_signature_algorithm,
     load_dkim_public_key,
     sign_message,
@@ -312,8 +315,56 @@ class Msg:
             )
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
-        sig_b64 = base64.b64encode(signature_bytes).decode("ascii")
-        return replace(msg, Hash=hash_hex, Signature=sig_b64)
+        return msg.with_signature(signature_bytes)
+
+    def with_signature(
+        self,
+        signature: bytes,
+        *,
+        signature_algorithm: Optional[str] = None,
+    ) -> "Msg":
+        """Attach signature bytes and derived hash to this msg.
+
+        Intended for external signers such as AWS KMS that already produced the
+        signature over ``self.canonical()``.
+        """
+        self._validate_required_fields(require_selector=False, require_from=True)
+        algorithm = (
+            canonical_signature_algorithm(signature_algorithm)
+            if signature_algorithm is not None
+            else self.Algorithm
+        )
+        if not algorithm:
+            raise MsgValidationError("Missing Algorithm")
+
+        msg = replace(self, Algorithm=algorithm)
+        canonical = msg.canonical()
+        hash_hex = hashlib.sha256(canonical).hexdigest()
+        return replace(
+            msg,
+            Hash=hash_hex,
+            Signature=encode_signature(signature),
+        )
+
+    def sign_with(
+        self,
+        signer,
+        *,
+        signature_algorithm: str,
+    ) -> "Msg":
+        """Sign this msg with an external signer callable.
+
+        ``signer`` receives the canonical message bytes and must return the raw
+        signature bytes for ``signature_algorithm``.
+        """
+        self._validate_required_fields(require_selector=False, require_from=True)
+        algorithm = canonical_signature_algorithm(signature_algorithm)
+        msg = replace(self, Algorithm=algorithm)
+        try:
+            signature = signer(msg.canonical())
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
+        return msg.with_signature(signature)
 
     def _validate_schema(self) -> None:
         if self.Schema != SCHEMA:
@@ -500,3 +551,18 @@ class Msg:
             Hash=d.get("Hash"),
             Signature=d.get("Signature"),
         )
+
+
+def dkim_public_key_value(public_key: object) -> str:
+    """Return the DKIM `p=` value for an Ed25519 public key."""
+    return encode_dkim_public_key(public_key)
+
+
+def decode_transport_bytes(value: str) -> bytes:
+    """Decode an ASCII-armored transport payload into raw bytes."""
+    return decode_ascii_envelope(value)
+
+
+def decode_transport_text(value: str, *, errors: str = "strict") -> str:
+    """Decode an ASCII-armored transport payload into text."""
+    return decode_transport_bytes(value).decode("utf-8", errors=errors)

@@ -174,6 +174,44 @@ class TestMsg:
         assert details.selector == "pw1"
         assert details.algorithm == "ed25519-sha256"
 
+    def test_sign_with_external_signer_returns_signed_msg(self, msg, private_key, public_key):
+        signer_calls = []
+
+        def external_signer(canonical: bytes) -> bytes:
+            signer_calls.append(canonical)
+            return private_key.sign(canonical)
+
+        signed = msg.sign_with(external_signer, signature_algorithm="ed25519-sha256")
+
+        assert signer_calls == [signed.canonical()]
+        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Hash == hashlib.sha256(signed.canonical()).hexdigest()
+        assert signed.Signature is not None
+        assert signed.verify(public_key) is True
+
+    def test_with_signature_attaches_hash_and_signature(self, msg, private_key, public_key):
+        algorithm_msg = replace(msg, Algorithm="ed25519-sha256")
+        canonical = algorithm_msg.canonical()
+        signed = msg.with_signature(
+            private_key.sign(canonical),
+            signature_algorithm="ed25519-sha256",
+        )
+
+        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Hash == hashlib.sha256(canonical).hexdigest()
+        assert signed.Signature is not None
+        assert signed.verify(public_key) is True
+
+    def test_dkim_public_key_value_returns_p_tag_value(self, public_key):
+        value = pw.dkim_public_key_value(public_key)
+
+        loaded = pw.msg.load_dkim_public_key("ed25519", value)
+        assert loaded.public_bytes_raw() == public_key.public_bytes_raw()
+
+    def test_decode_transport_helpers_round_trip(self):
+        assert pw.decode_transport_bytes("aGVsbG8=") == b"hello"
+        assert pw.decode_transport_text("aGVsbG8=") == "hello"
+
     def test_from_defaults_to_empty(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""
