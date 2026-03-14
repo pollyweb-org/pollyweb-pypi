@@ -23,12 +23,17 @@ def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Opt
 
     dns_name = f"{selector}._domainkey.pw.{domain}"
     try:
-        answers = dns.resolver.resolve(dns_name, "TXT")
+        resolver = dns.resolver.Resolver()
+        if require_dnssec:
+            # Enable EDNS with DO flag to request DNSSEC validation
+            resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
+            resolver.set_flags(dns.flags.AD)
+        answers = resolver.resolve(dns_name, "TXT")
     except Exception:
         return None
 
     if require_dnssec and not (answers.response.flags & dns.flags.AD):
-        raise ValueError(f"DNSSEC not enabled for {dns_name}")
+        raise ValueError(f"DNSSEC validation failed for {dns_name}")
 
     for rdata in answers:
         txt = b"".join(rdata.strings).decode("utf-8")
