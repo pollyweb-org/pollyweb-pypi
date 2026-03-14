@@ -11,6 +11,7 @@ assert signed.Hash is not None
 Internally:
 
 - the signature algorithm is selected from `msg.Algorithm` when provided, otherwise inferred from the private key
+- `msg.From`, `msg.To`, `msg.Subject`, `msg.Correlation`, and `msg.Timestamp` must all be non-empty
 - `SHA-256(canonical())` becomes `Hash`
 - the signature bytes are base64-encoded into `Signature`
 

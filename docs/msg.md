@@ -115,7 +115,7 @@ received.verify(public_key)
 |---|---|---|---|---|
 | `To` | `str` | ✅ | — | Receiver's domain name. Must be a syntactically valid domain string. |
 | `Subject` | `str` | ✅ | — | Method to invoke on the receiver (e.g. `Hello@Host`). Must be a string. |
-| `From` | `str` | — | `""` | Sender identifier. Must be `""`, `Anonymous`, a domain string, or a UUID. Set by [`Domain.sign()`](domain.md). If omitted when serializing or parsing, it is treated as `Anonymous`. |
+| `From` | `str` | — | `""` | Sender identifier. Must be `""`, `Anonymous`, a domain string, or a UUID. Draft messages may leave it empty, but [`msg.sign()`](msg/sign.md), [`msg.validate_unsigned()`](msg/validate_unsigned.md), and [`msg.verify()`](msg/verify.md) require it to be non-empty. [`Domain.sign()`](domain.md) fills it automatically. If omitted when serializing or parsing, it is treated as `Anonymous`. |
 | `Selector` | `str` | — | `""` | Name of the sender's public key in DNS (e.g. `pw1` → `pw1._domainkey.pw.sender.dom`, under `pw.sender.dom`). When signing through a [`Domain`](domain.md), this selector is derived from [`Domain.dns()`](domain.md) and written by [`Domain.sign()`](domain.md). If empty, it may be omitted from the wire format. |
 | `Algorithm` | `str` | — | `""` | Signature algorithm for the message, using DKIM-style values such as `ed25519-sha256` or `rsa-sha256`. `sign()` fills this automatically when omitted. |
 | `Body` | `dict` | — | `{}` | Arbitrary JSON-serialisable payload. |
@@ -125,7 +125,7 @@ received.verify(public_key)
 | `Hash` | `str \| None` | — | `None` | SHA-256 hex digest of the canonical form. Set by `sign()`. |
 | `Signature` | `str \| None` | — | `None` | Base64-encoded signature bytes. Set by `sign()`. |
 
-`Msg()` rejects any `To` value that is not a syntactically valid domain string, any `From` value that is not `""`, `Anonymous`, a domain string, or a UUID, any `Subject` value that is not a string, any `Schema` value that is not a valid [`Schema`](schema.md) code, any `Correlation` value that is not a UUID string, and any `Timestamp` value that is not a UTC timestamp ending in `Z`. String schema inputs are normalized to canonical form, so `.MSG` becomes `pollyweb.org/MSG:1.0`. `verify()` and `validate_unsigned()` always require `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. If `From` is omitted, it is normalized to `Anonymous`. `Selector` is required only when signature validation needs DNS to resolve the sender key.
+`Msg()` rejects any `To` value that is not a syntactically valid domain string, any `From` value that is not `""`, `Anonymous`, a domain string, or a UUID, any `Subject` value that is not a string, any `Schema` value that is not a valid [`Schema`](schema.md) code, any `Correlation` value that is not a UUID string, and any `Timestamp` value that is not a UTC timestamp ending in `Z`. String schema inputs are normalized to canonical form, so `.MSG` becomes `pollyweb.org/MSG:1.0`. `sign()`, `verify()`, and `validate_unsigned()` require `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. `Selector` is required only when signature validation needs DNS to resolve the sender key.
 
 ---
 
@@ -205,4 +205,4 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 **CamelCase fields** — Field names on `Msg` match the wire-format names (e.g. `From`, `To`, `Subject`) for consistency between the Python API and the JSON representation.
 
-**`From`, `Selector`, and `Algorithm` are optional at construction** — `From` and `Selector` default to `""`, and `Algorithm` also defaults to `""`, so a `Msg` can be built before the sender or signature method is known. `From` may also be set explicitly to `Anonymous`, a domain string, or a UUID. When `From` is omitted on the wire or during serialization, it is treated as `Anonymous`. [`domain.sign()`](domain/sign.md) fills `From`, derives `Selector`, and signs with the domain's Ed25519 key. `verify()` requires `Selector` only when it must resolve the sender key from DNS.
+**`From`, `Selector`, and `Algorithm` are optional at construction** — `From` and `Selector` default to `""`, and `Algorithm` also defaults to `""`, so a `Msg` can be built as a draft before the sender or signature method is known. `From` may also be set explicitly to `Anonymous`, a domain string, or a UUID. Before a message is signed or validated, `From` must be populated; [`domain.sign()`](domain/sign.md) fills `From`, derives `Selector`, and signs with the domain's Ed25519 key. `verify()` requires `Selector` only when it must resolve the sender key from DNS.

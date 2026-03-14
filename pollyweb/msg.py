@@ -292,6 +292,7 @@ class Msg:
 
     def sign(self, private_key: object) -> "Msg":
         """Compute hash and sign this msg. Returns a new signed Msg."""
+        self._validate_required_fields(require_selector=False, require_from=True)
         try:
             algorithm = (
                 canonical_signature_algorithm(self.Algorithm)
@@ -318,13 +319,15 @@ class Msg:
         if self.Schema != SCHEMA:
             raise MsgValidationError(f"Unsupported schema: {self.Schema}")
 
-    def _validate_required_fields(self, *, require_selector: bool) -> None:
+    def _validate_required_fields(self, *, require_selector: bool, require_from: bool) -> None:
         required_fields = [
             ("To", self.To),
             ("Subject", self.Subject),
             ("Correlation", self.Correlation),
             ("Timestamp", self.Timestamp),
         ]
+        if require_from:
+            required_fields.append(("From", self.From))
         if require_selector:
             required_fields.append(("Selector", self.Selector))
 
@@ -345,7 +348,7 @@ class Msg:
     def validate_unsigned(self) -> bool:
         """Validate structure and canonical hash, but skip signature verification."""
         self._validate_schema()
-        self._validate_required_fields(require_selector=False)
+        self._validate_required_fields(require_selector=False, require_from=True)
         self._validate_hash()
         return True
 
@@ -363,7 +366,7 @@ class Msg:
         """Validate the message and return structured verification details."""
         self._validate_schema()
         dns_lookup_used = public_key is None
-        self._validate_required_fields(require_selector=dns_lookup_used)
+        self._validate_required_fields(require_selector=dns_lookup_used, require_from=True)
         canonical = self._validate_hash()
 
         if self.Signature is None:

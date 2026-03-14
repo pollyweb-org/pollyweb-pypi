@@ -246,6 +246,12 @@ class TestMsg:
         with pytest.raises(pw.MsgValidationError, match="Unsupported signature algorithm"):
             pw.Msg(To="b.dom", Subject="Ping", Algorithm="ml-dsa-87-sha512")
 
+    def test_sign_requires_from(self, private_key):
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+
+        with pytest.raises(pw.MsgValidationError, match="Missing From"):
+            msg.sign(private_key)
+
 
 # ---------------------------------------------------------------------------
 # Msg.canonical
@@ -466,10 +472,10 @@ class TestValidate:
 
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
-            From="a.dom", To="b.dom", Subject="", Selector="pw1", Body={},
+            From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={},
         ).sign(private_key)
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
-            signed_env.verify(public_key)
+            replace(signed_env, Subject="").verify(public_key)
 
     def test_missing_selector_allowed_when_not_verifying_signature(self):
         msg = pw.Msg(
@@ -481,6 +487,13 @@ class TestValidate:
         hashed = replace(msg, Hash=hashlib.sha256(msg.canonical()).hexdigest())
         assert hashed.validate_unsigned() is True
 
+    def test_missing_from_rejected_when_validating_without_signature(self):
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+        hashed = replace(msg, Hash=hashlib.sha256(msg.canonical()).hexdigest())
+
+        with pytest.raises(pw.MsgValidationError, match="Missing From"):
+            hashed.validate_unsigned()
+
     def test_tampered_selector_fails_even_with_explicit_public_key(self, signed, public_key):
         with pytest.raises(pw.MsgValidationError, match="Hash mismatch"):
             replace(signed, Selector="").verify(public_key)
@@ -488,6 +501,24 @@ class TestValidate:
     def test_missing_selector_required_when_dns_lookup_is_needed(self, signed):
         with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
             replace(signed, Selector="").verify()
+
+    def test_missing_from_required_when_verifying(self, private_key):
+        msg = pw.Msg(
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+            Body={"greeting": "hi"},
+        )
+        canonical = msg.canonical()
+        signed = replace(
+            msg,
+            Algorithm="ed25519-sha256",
+            Hash=hashlib.sha256(canonical).hexdigest(),
+            Signature=base64.b64encode(private_key.sign(canonical)).decode("ascii"),
+        )
+
+        with pytest.raises(pw.MsgValidationError, match="Missing From"):
+            signed.verify(private_key.public_key())
 
     def test_anonymous_message_can_validate_without_signature(self):
         msg = pw.Msg(

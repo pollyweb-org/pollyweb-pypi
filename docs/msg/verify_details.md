@@ -2,6 +2,8 @@
 
 Validates message structure, canonical hash, and signature, then returns a `VerificationDetails` instance.
 
+Like [`msg.verify()`](verify.md), this requires `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty.
+
 It raises `MsgValidationError` on the same failures as [`msg.verify()`](verify.md).
 
 The result contains:
