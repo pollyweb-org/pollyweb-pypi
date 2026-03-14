@@ -27,7 +27,6 @@ def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Opt
         if require_dnssec:
             # Enable EDNS with DO flag to request DNSSEC validation
             resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
-            resolver.set_flags(dns.flags.AD)
         answers = resolver.resolve(dns_name, "TXT")
     except Exception:
         return None
