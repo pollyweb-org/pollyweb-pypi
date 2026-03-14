@@ -1290,7 +1290,10 @@ class TestDomainDNS:
         import dns.resolver as _r
         pair = pw.KeyPair()
         domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")
-        with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
+        
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _r.NXDOMAIN
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             record = domain.dns()
         assert record == {"pw1": pair.dkim()}
 
@@ -1304,7 +1307,9 @@ class TestDomainDNS:
             import dns.resolver as _r
             raise _r.NXDOMAIN
 
-        with patch("dns.resolver.resolve", side_effect=_resolve):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _resolve
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             record = domain.dns()
         assert record == {"pw1": pair.dkim()}
 
@@ -1319,7 +1324,9 @@ class TestDomainDNS:
             import dns.resolver as _r
             raise _r.NXDOMAIN
 
-        with patch("dns.resolver.resolve", side_effect=_resolve):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _resolve
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             record = domain.dns()
         assert record == {"pw2": new_pair.dkim()}
 
@@ -1336,7 +1343,9 @@ class TestDomainDNS:
             import dns.resolver as _r
             raise _r.NXDOMAIN
 
-        with patch("dns.resolver.resolve", side_effect=_resolve):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _resolve
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             record = domain.dns()
         assert record == {"pw2": key2.dkim()}
 
@@ -1353,7 +1362,9 @@ class TestDomainDNS:
             import dns.resolver as _r
             raise _r.NXDOMAIN
 
-        with patch("dns.resolver.resolve", side_effect=_resolve):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _resolve
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             with pytest.raises(ValueError, match="already used"):
                 domain.dns()
 
@@ -1363,7 +1374,9 @@ class TestDNS:
         import dns.resolver as _r
 
         dns = pw.DNS(Name="origin.dom")
-        with patch("dns.resolver.resolve", side_effect=_r.NXDOMAIN):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _r.NXDOMAIN
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             report = dns.check()
 
         assert report["summary"]["domain"] == "origin.dom"
@@ -1380,7 +1393,9 @@ class TestDNS:
     def test_check_returns_true_for_valid_selector(self, keypair):
         dns = pw.DNS(Name="origin.dom")
 
-        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(keypair.PublicKey)):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.return_value = _dkim_dns_answer(keypair.PublicKey)
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             report = dns.check("pw1")
 
         assert report["summary"]["selector"] == "pw1"
@@ -1397,10 +1412,9 @@ class TestDNS:
         dns = pw.DNS(Name="origin.dom")
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-        with patch(
-            "dns.resolver.resolve",
-            return_value=_dkim_dns_answer(private_key.public_key(), key_type="rsa"),
-        ):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.return_value = _dkim_dns_answer(private_key.public_key(), key_type="rsa")
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             report = dns.check("pw1")
 
         assert report["summary"]["selector"] == "pw1"
@@ -1416,7 +1430,9 @@ class TestDNS:
     def test_check_requires_dnssec(self, keypair):
         dns = pw.DNS(Name="origin.dom")
 
-        with patch("dns.resolver.resolve", return_value=_dkim_dns_answer(keypair.PublicKey, ad_flag=False)):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.return_value = _dkim_dns_answer(keypair.PublicKey, ad_flag=False)
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             report = dns.check("pw1")
 
         assert report["summary"]["compliant"] is False
@@ -1424,7 +1440,7 @@ class TestDNS:
         assert report["table"][0]["status"] == "error"
         assert report["table"][0]["compliant"] is False
         assert report["table"][0]["record"] is None
-        assert "DNSSEC not enabled" in report["table"][0]["message"]
+        assert "DNSSEC validation failed" in report["table"][0]["message"]
 
     def test_check_rejects_duplicate_keys_across_selectors(self, keypair):
         dns = pw.DNS(Name="origin.dom")
@@ -1435,7 +1451,9 @@ class TestDNS:
             import dns.resolver as _r
             raise _r.NXDOMAIN
 
-        with patch("dns.resolver.resolve", side_effect=_resolve):
+        mock_resolver = MagicMock()
+        mock_resolver.resolve.side_effect = _resolve
+        with patch("dns.resolver.Resolver", return_value=mock_resolver):
             report = dns.check()
 
         assert report["summary"]["compliant"] is False
