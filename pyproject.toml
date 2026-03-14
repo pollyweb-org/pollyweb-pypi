@@ -26,6 +26,9 @@ include = ["pollyweb*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "pollyweb"]
+markers = [
+    "live_dns: tests that perform real DNS lookups and require network access",
+]
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"

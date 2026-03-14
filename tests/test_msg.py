@@ -348,6 +348,19 @@ class TestValidate:
     def test_round_trip(self, signed, public_key):
         assert signed.verify(public_key) is True
 
+    def test_verify_requests_dnssec_validation_during_dkim_lookup(self, signed, public_key):
+        answer = _dkim_dns_answer(public_key)
+
+        with patch("dns.resolver.Resolver") as mock_resolver_class:
+            mock_resolver = MagicMock()
+            mock_resolver_class.return_value = mock_resolver
+            mock_resolver.resolve.return_value = answer
+
+            assert signed.verify() is True
+
+        mock_resolver.use_edns.assert_called_once()
+        mock_resolver.resolve.assert_called_once_with("pw1._domainkey.pw.sender.dom", "TXT")
+
     def test_non_domain_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
         sender_id = "123e4567-e89b-12d3-a456-426614174000"
         msg = pw.Msg(
@@ -1200,4 +1213,3 @@ class TestDomain:
 # DNS.check (REMOVED - mocked tests gave false confidence)
 # Real DNS integration tests are in tests/test_dns.py
 # ---------------------------------------------------------------------------
-
