@@ -17,16 +17,38 @@ def _parse_dkim_txt(txt: str) -> dict[str, str]:
     return params
 
 
+def pollyweb_domain(domain: str) -> str:
+    return f"pw.{domain}"
+
+
+def dkim_dns_name(domain: str, selector: str) -> str:
+    return f"{selector}._domainkey.{pollyweb_domain(domain)}"
+
+
+def validate_pollyweb_branch(resolver, domain: str) -> None:
+    import dns.flags
+
+    branch = pollyweb_domain(domain)
+    try:
+        answer = resolver.resolve(branch, "DS", raise_on_no_answer=False)
+    except Exception as exc:
+        raise ValueError(f"DNSSEC validation failed for {branch}: {exc}") from exc
+
+    if not (answer.response.flags & dns.flags.AD):
+        raise ValueError(f"DNSSEC validation failed for {branch}")
+
+
 def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Optional[tuple[str, bytes, str]]:
     import dns.flags
     import dns.resolver
 
-    dns_name = f"{selector}._domainkey.pw.{domain}"
+    dns_name = dkim_dns_name(domain, selector)
     try:
         resolver = dns.resolver.Resolver()
         if require_dnssec:
             # Enable EDNS with DO flag to request DNSSEC validation
             resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
+            validate_pollyweb_branch(resolver, domain)
         answers = resolver.resolve(dns_name, "TXT")
     except Exception:
         return None

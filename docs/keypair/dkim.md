@@ -21,7 +21,11 @@ Publish the returned string as a DNS TXT record at:
 {selector}._domainkey.pw.{domain}
 ```
 
-If you are managing a full PollyWeb sending domain, prefer [`domain.dns()`](../domain/dns.md), which determines the correct selector and returns a `{selector: txt}` mapping. [`domain.sign()`](../domain/sign.md) uses that derived selector when populating `Msg.Selector`.
+That record lives under the PollyWeb branch `pw.{domain}`. If you are managing
+a full PollyWeb sending domain, prefer [`domain.dns()`](../domain/dns.md),
+which determines the correct selector and returns a `{selector: txt}` mapping.
+[`domain.sign()`](../domain/sign.md) uses that derived selector when populating
+`Msg.Selector`.
 
 If you only need to inspect whether published DNS is compliant, use [`DNS.check()`](../dns/check.md).
 

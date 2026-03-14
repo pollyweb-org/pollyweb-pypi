@@ -5,7 +5,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import replace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from cryptography.hazmat.primitives import hashes
@@ -53,9 +53,24 @@ def _dkim_dns_answer(public_key, *, ad_flag: bool = True, key_type: str = "ed255
     return answer
 
 
-def _mock_dns_resolver(answer):
+def _dnssec_answer(*, ad_flag: bool = True):
+    import dns.flags
+
+    response = MagicMock()
+    response.flags = dns.flags.AD if ad_flag else 0
+
+    answer = MagicMock()
+    answer.response = response
+    answer.__iter__ = lambda self: iter([])
+    return answer
+
+
+def _mock_dns_resolver(*answers):
     resolver = MagicMock()
-    resolver.resolve.return_value = answer
+    if len(answers) == 1:
+        resolver.resolve.return_value = answers[0]
+    else:
+        resolver.resolve.side_effect = list(answers)
     return patch("dns.resolver.Resolver", return_value=resolver), resolver
 
 
@@ -327,7 +342,10 @@ class TestSend:
                 result = signed.send()
 
         assert result is response
-        resolver.resolve.assert_called_once()
+        assert resolver.resolve.call_args_list == [
+            call("pw.sender.dom", "DS", raise_on_no_answer=False),
+            call("pw1._domainkey.pw.sender.dom", "TXT"),
+        ]
         urlopen.assert_called_once()
 
     def test_send_rejects_invalid_domain_target_signature_before_posting(self, signed):
@@ -358,17 +376,21 @@ class TestValidate:
         assert signed.verify(public_key) is True
 
     def test_verify_requests_dnssec_validation_during_dkim_lookup(self, signed, public_key):
-        answer = _dkim_dns_answer(public_key)
+        branch_answer = _dnssec_answer()
+        dkim_answer = _dkim_dns_answer(public_key)
 
         with patch("dns.resolver.Resolver") as mock_resolver_class:
             mock_resolver = MagicMock()
             mock_resolver_class.return_value = mock_resolver
-            mock_resolver.resolve.return_value = answer
+            mock_resolver.resolve.side_effect = [branch_answer, dkim_answer]
 
             assert signed.verify() is True
 
         mock_resolver.use_edns.assert_called_once()
-        mock_resolver.resolve.assert_called_once_with("pw1._domainkey.pw.sender.dom", "TXT")
+        assert mock_resolver.resolve.call_args_list == [
+            call("pw.sender.dom", "DS", raise_on_no_answer=False),
+            call("pw1._domainkey.pw.sender.dom", "TXT"),
+        ]
 
     def test_non_domain_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
         sender_id = "123e4567-e89b-12d3-a456-426614174000"

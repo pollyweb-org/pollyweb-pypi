@@ -2,7 +2,8 @@
 
 Validates message structure, canonical hash, and signature. Returns `True` on success and raises `MsgValidationError` on failure.
 
-`public_key` is optional. When omitted, the key is fetched from DNS using:
+`public_key` is optional. When omitted, `verify()` first validates the PollyWeb
+branch at `pw.{From}` with DNSSEC, then fetches the key from DNS using:
 
 ```text
 {Selector}._domainkey.pw.{From}
@@ -21,7 +22,8 @@ The message header may also contain `Algorithm`, which identifies the signature 
 
 If `Algorithm` is omitted, `verify()` keeps legacy compatibility for Ed25519 messages by inferring `ed25519-sha256`.
 
-DNSSEC is required. The DNS response must have the `AD` flag set.
+DNSSEC is required. The `pw.{From}` branch validation and the DKIM TXT response
+must both have the `AD` flag set.
 
 If `public_key` is passed explicitly, `Selector` is not required because DNS resolution is skipped. To validate only structure and the canonical hash without checking the signature, use [`msg.validate_unsigned()`](validate_unsigned.md).
 
@@ -35,9 +37,10 @@ If `public_key` is passed explicitly, `Selector` is not required because DNS res
 6. `Hash` must be present
 7. `Signature` must be present
 8. `SHA-256(canonical())` must match the stored `Hash`
-9. When needed, the public key is resolved from DNS with DNSSEC enforcement
-10. The signature algorithm must match the DKIM key type when DNS is used
-11. The signature must verify against `canonical()`
+9. When needed, `pw.{From}` is validated with DNSSEC first
+10. The public key is resolved from DNS with DNSSEC enforcement
+11. The signature algorithm must match the DKIM key type when DNS is used
+12. The signature must verify against `canonical()`
 
 ```python
 signed.verify(public_key)

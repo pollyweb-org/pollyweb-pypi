@@ -21,6 +21,7 @@ from pollyweb._crypto import (
     signature_algorithm_for_public_key,
     verify_signature,
 )
+from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
 from pollyweb.schema import Schema
 
 SCHEMA = Schema("pollyweb.org/MSG:1.0")
@@ -63,8 +64,9 @@ def _is_z_timestamp(value: str) -> bool:
 def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
     """Fetch the public key from the DKIM DNS TXT record.
 
-    Queries ``{selector}._domainkey.pw.{domain}`` for a TXT record in the standard
-    DKIM wire format: ``v=DKIM1; k=<key-type>; p=<base64>``.
+    Validates the ``pw.{domain}`` PollyWeb branch, then queries
+    ``{selector}._domainkey.pw.{domain}`` for a TXT record in the standard DKIM
+    wire format: ``v=DKIM1; k=<key-type>; p=<base64>``.
 
     Raises ``MsgValidationError`` if:
     - the DNS lookup fails,
@@ -74,10 +76,17 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
     import dns.flags
     import dns.resolver
 
-    dns_name = f"{selector}._domainkey.pw.{domain}"
+    branch = pollyweb_domain(domain)
+    dns_name = dkim_dns_name(domain, selector)
     try:
         resolver = dns.resolver.Resolver()
         resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
+        try:
+            validate_pollyweb_branch(resolver, domain)
+        except ValueError as exc:
+            raise MsgValidationError(
+                f"DNSSEC validation failed for {branch}: cannot trust PollyWeb branch"
+            ) from exc
         answers = resolver.resolve(dns_name, "TXT")
     except Exception as exc:
         raise MsgValidationError(f"DKIM lookup failed for {dns_name}: {exc}") from exc

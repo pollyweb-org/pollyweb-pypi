@@ -6,11 +6,14 @@ Returns a validation report for PollyWeb DKIM DNS records published under:
 {selector}._domainkey.pw.{domain}
 ```
 
-When `selector` is omitted, `check()` walks `pw1`, `pw2`, `pw3`, and so on until the first missing selector.
+`check()` also validates the PollyWeb branch `pw.{domain}` with DNSSEC before
+trusting any DKIM TXT records. When `selector` is omitted, `check()` walks
+`pw1`, `pw2`, `pw3`, and so on until the first missing selector.
 
 The validation requires:
 
-- DNSSEC enabled on the response (`AD` flag set)
+- DNSSEC validation for the PollyWeb branch `pw.{domain}`
+- DNSSEC enabled on the DKIM TXT response (`AD` flag set)
 - `v=DKIM1`
 - a supported `k=` value
 - a valid base64 public key in `p=...` for that key type

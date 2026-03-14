@@ -4,7 +4,8 @@ Returns `{selector: txt}` for the DKIM record that should be published for the d
 
 ## Behaviour
 
-`domain.dns()` probes `pw{n}._domainkey.pw.{Name}` in DNS starting at `pw1` until the first missing entry, then applies:
+`domain.dns()` probes `pw{n}._domainkey.pw.{Name}` in the PollyWeb branch
+`pw.{Name}` starting at `pw1` until the first missing entry, then applies:
 
 | Situation | Result |
 |---|---|
@@ -24,4 +25,7 @@ Publish the TXT value at:
 {selector}._domainkey.pw.{domain.Name}
 ```
 
-If you want to audit what is already published in DNS, use [`DNS.check()`](../dns/check.md) instead. `domain.dns()` decides what should be published next for the current key.
+That record lives under the PollyWeb branch `pw.{domain.Name}`. If you want to
+audit what is already published in DNS, use [`DNS.check()`](../dns/check.md)
+instead. `domain.dns()` decides what should be published next for the current
+key.

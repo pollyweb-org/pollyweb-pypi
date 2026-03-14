@@ -23,6 +23,8 @@ def _make_txt_rdata(txt):
     rdata = Mock()
     rdata.strings = [txt.encode("utf-8")]
     return rdata
+
+
 class TestFetchDkimEntry:
     """Unit tests for DNS lookup and DNSSEC enforcement."""
 
@@ -31,27 +33,42 @@ class TestFetchDkimEntry:
         with patch("dns.resolver.Resolver") as mock_resolver_class:
             mock_resolver = Mock()
             mock_resolver_class.return_value = mock_resolver
-            mock_resolver.resolve.return_value = _make_txt_answer(
-                txt_records=[_make_txt_rdata(txt)],
-                ad_flag=True,
-            )
+            mock_resolver.resolve.side_effect = [
+                _make_txt_answer(ad_flag=True),
+                _make_txt_answer(txt_records=[_make_txt_rdata(txt)], ad_flag=True),
+            ]
 
             selector, raw, record = fetch_dkim_entry("example.com", "pw1", require_dnssec=True)
 
         mock_resolver.use_edns.assert_called_once()
-        mock_resolver.resolve.assert_called_once_with("pw1._domainkey.pw.example.com", "TXT")
+        assert mock_resolver.resolve.call_args_list == [
+            (("pw.example.com", "DS"), {"raise_on_no_answer": False}),
+            (("pw1._domainkey.pw.example.com", "TXT"), {}),
+        ]
         assert selector == "pw1"
         assert isinstance(raw, bytes)
         assert record == txt
 
-    def test_dnssec_validation_fails_without_ad_flag(self):
+    def test_dnssec_validation_fails_without_ad_flag_on_pollyweb_branch(self):
         with patch("dns.resolver.Resolver") as mock_resolver_class:
             mock_resolver = Mock()
             mock_resolver_class.return_value = mock_resolver
             mock_resolver.resolve.return_value = _make_txt_answer(ad_flag=False)
 
             with pytest.raises(ValueError, match="DNSSEC validation failed"):
-                fetch_dkim_entry("example.com", "pw1", require_dnssec=True)
+                from pollyweb.dns import validate_pollyweb_branch
+
+                validate_pollyweb_branch(mock_resolver, "example.com")
+
+    def test_returns_none_when_pollyweb_branch_dnssec_validation_fails(self):
+        with patch("dns.resolver.Resolver") as mock_resolver_class:
+            mock_resolver = Mock()
+            mock_resolver_class.return_value = mock_resolver
+            mock_resolver.resolve.return_value = _make_txt_answer(ad_flag=False)
+
+            result = fetch_dkim_entry("example.com", "pw1", require_dnssec=True)
+
+        assert result is None
 
     def test_nonexistent_domain_returns_none(self):
         with patch("dns.resolver.Resolver") as mock_resolver_class:
