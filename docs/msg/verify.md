@@ -2,6 +2,8 @@
 
 Validates message structure, canonical hash, and signature. Returns `True` on success and raises `MsgValidationError` on failure.
 
+If you need the verified values as data, use `msg.verify_details(public_key=None)`. It performs the same validation and returns a `VerificationDetails` instance describing the fields and checks that passed.
+
 `public_key` is optional. When omitted, `verify()` first validates the PollyWeb
 branch at `pw.{From}` with DNSSEC, then fetches the key from DNS using:
 
@@ -47,6 +49,7 @@ signed.verify(public_key)
 signed.verify(pair.PublicKey)
 received.verify(db_public_key)
 signed.verify()
+details = signed.verify_details(public_key)
 ```
 
 To inspect the sender domain's DNS configuration separately from message validation, use [`DNS.check()`](../dns/check.md).

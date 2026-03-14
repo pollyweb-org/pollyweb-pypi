@@ -159,6 +159,21 @@ class TestMsg:
         assert msg.Hash is None
         assert msg.Signature is None
 
+    def test_verify_details_returns_structured_result(self, signed, public_key):
+        details = signed.verify_details(public_key)
+
+        assert details.schema == "pollyweb.org/MSG:1.0"
+        assert details.required_headers_present is True
+        assert details.hash_valid is True
+        assert details.signature_valid is True
+        assert details.dns_lookup_used is False
+        assert details.from_value == "sender.dom"
+        assert details.to_value == "receiver.dom"
+        assert details.subject == "Hello@Host"
+        assert details.correlation == signed.Correlation
+        assert details.selector == "pw1"
+        assert details.algorithm == "ed25519-sha256"
+
     def test_from_defaults_to_empty(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""

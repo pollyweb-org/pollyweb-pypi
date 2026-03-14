@@ -135,6 +135,7 @@ received.verify(public_key)
 - [`msg.sign(private_key) → Msg`](msg/sign.md) — returns a new signed message with `Algorithm`, `Hash`, and `Signature`.
 - [`msg.send() → HTTPResponse`](msg/send.md) — validates the message and POSTs it to the receiver inbox.
 - [`msg.verify(public_key=None) → bool`](msg/verify.md) — validates structure, hash, and the configured signature algorithm.
+- [`msg.verify_details(public_key=None) → VerificationDetails`](msg/verify_details.md) — validates the message and returns the verified fields as structured data.
 - [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.
 - [`msg.validate_signature(public_key=None) → bool`](msg/verify.md) — backward-compatible alias for `verify()`.
 - [`msg.to_dict() → dict`](msg/to_dict.md) — serialises the message to the PollyWeb wire-format mapping.

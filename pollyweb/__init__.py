@@ -7,5 +7,6 @@ from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import (
     Msg,
     MsgValidationError,
+    VerificationDetails,
 )
 from pollyweb.schema import Schema

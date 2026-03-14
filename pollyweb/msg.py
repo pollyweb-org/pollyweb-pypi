@@ -210,6 +210,23 @@ class MsgValidationError(Exception):
 
 
 @dataclass(frozen=True)
+class VerificationDetails:
+    """Structured details describing what ``Msg.verify_details()`` validated."""
+
+    schema: str
+    required_headers_present: bool
+    hash_valid: bool
+    signature_valid: bool
+    dns_lookup_used: bool
+    from_value: str
+    to_value: str
+    subject: str
+    correlation: str
+    selector: str
+    algorithm: str
+
+
+@dataclass(frozen=True)
 class Msg:
     To: str
     Subject: str
@@ -339,15 +356,21 @@ class Msg:
         selector and the From domain: ``{Selector}._domainkey.pw.{From}`` (TXT record,
         DKIM wire format: ``v=DKIM1; k=<key-type>; p=<base64>``).
         """
+        self.verify_details(public_key)
+        return True
+
+    def verify_details(self, public_key: Optional[object] = None) -> VerificationDetails:
+        """Validate the message and return structured verification details."""
         self._validate_schema()
-        self._validate_required_fields(require_selector=public_key is None)
+        dns_lookup_used = public_key is None
+        self._validate_required_fields(require_selector=dns_lookup_used)
         canonical = self._validate_hash()
 
         if self.Signature is None:
             raise MsgValidationError("Missing Signature")
 
         key_type = None
-        if public_key is None:
+        if dns_lookup_used:
             public_key, key_type = _resolve_dkim_public_key(self.From, self.Selector)
 
         try:
@@ -372,7 +395,19 @@ class Msg:
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
 
-        return True
+        return VerificationDetails(
+            schema=str(self.Schema),
+            required_headers_present=True,
+            hash_valid=True,
+            signature_valid=True,
+            dns_lookup_used=dns_lookup_used,
+            from_value=self.From,
+            to_value=self.To,
+            subject=self.Subject,
+            correlation=self.Correlation,
+            selector=self.Selector,
+            algorithm=signature_algorithm or "",
+        )
 
     def validate_signature(self, public_key: Optional[object] = None) -> bool:
         """Backward-compatible alias for :meth:`verify`."""
