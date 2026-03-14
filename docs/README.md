@@ -8,6 +8,7 @@ Reference documentation for the `pollyweb` Python package.
 - [`DNS`](dns.md) — DNS inspection overview and method links
 - [`KeyPair`](keypair.md) — key material overview, property docs, and method links
 - [`Msg`](msg.md) — message envelope overview, fields, and method links
+- [`Schema`](schema.md) — validated PollyWeb schema code value type
 
 ## Method reference
 

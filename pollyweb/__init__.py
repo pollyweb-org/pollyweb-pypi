@@ -7,3 +7,4 @@ from pollyweb.msg import (
     Msg,
     MsgValidationError,
 )
+from pollyweb.schema import Schema

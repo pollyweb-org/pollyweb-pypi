@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import re
 import urllib.request
 import uuid
 from dataclasses import dataclass, field, replace
@@ -16,12 +17,43 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 import yaml
 
-SCHEMA = "pollyweb.org/MSG:1.0"
+from pollyweb.schema import Schema
+
+SCHEMA = Schema("pollyweb.org/MSG:1.0")
 
 
-def _is_domain_target(value: str) -> bool:
-    """Return True when *value* looks like a domain-style PollyWeb recipient."""
-    return "." in value
+_DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+    r"(?:[A-Za-z]{2,63}|xn--[A-Za-z0-9-]{1,59})$"
+)
+_Z_TIMESTAMP_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$"
+)
+
+
+def _is_domain_name(value: str) -> bool:
+    """Return True when *value* is a syntactically valid domain name."""
+    return bool(_DOMAIN_RE.fullmatch(value))
+
+
+def _is_uuid_string(value: str) -> bool:
+    """Return True when *value* is a syntactically valid UUID string."""
+    try:
+        uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
+def _is_z_timestamp(value: str) -> bool:
+    """Return True when *value* is an ISO-8601 UTC timestamp ending in Z."""
+    if not isinstance(value, str) or not _Z_TIMESTAMP_RE.fullmatch(value):
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
 
 
 def _resolve_dkim_public_key(domain: str, selector: str) -> Ed25519PublicKey:
@@ -168,9 +200,27 @@ class Msg:
     Body: Dict[str, Any] = field(default_factory=dict)
     Correlation: str = field(default_factory=lambda: str(uuid.uuid4()))
     Timestamp: str = field(default_factory=_utc_now)
-    Schema: str = SCHEMA
+    Schema: Schema = SCHEMA
     Hash: Optional[str] = None
     Signature: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if not _is_domain_name(self.To):
+            raise MsgValidationError("To must be a domain string")
+        if not isinstance(self.Subject, str):
+            raise MsgValidationError("Subject must be a string")
+        try:
+            object.__setattr__(self, "Schema", self.Schema if isinstance(self.Schema, Schema) else Schema(self.Schema))
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
+        if not _is_uuid_string(self.Correlation):
+            raise MsgValidationError("Correlation must be a UUID")
+        if not _is_z_timestamp(self.Timestamp):
+            raise MsgValidationError("Timestamp must be a Z timestamp")
+        if self.From not in ("", "Anonymous") and not _is_domain_name(self.From) and not _is_uuid_string(self.From):
+            raise MsgValidationError(
+                "From must be empty, Anonymous, a domain string, or a UUID"
+            )
 
     def _effective_from(self) -> str:
         """Return the sender name used on the wire and in canonicalization."""
@@ -274,11 +324,7 @@ class Msg:
 
     def send(self):
         """Validate this message, POST it to the receiver inbox, and return the HTTP response."""
-        if _is_domain_target(self.To):
-            self.verify()
-        else:
-            self.validate_unsigned()
-
+        self.verify()
         url = f"https://pw.{self.To}/inbox"
         body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
         req = urllib.request.Request(

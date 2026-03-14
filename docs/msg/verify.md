@@ -21,12 +21,15 @@ If `public_key` is passed explicitly, `Selector` is not required because DNS res
 ## Validation order
 
 1. `Schema` must match `pollyweb.org/MSG:1.0`
-2. Required header fields must be non-empty: always `To`, `Subject`, `Correlation`, `Timestamp`; `From` is normalized to `Anonymous` when omitted; `Selector` is also required when DNS lookup is needed
-3. `Hash` must be present
-4. `Signature` must be present
-5. `SHA-256(canonical())` must match the stored `Hash`
-6. When needed, the public key is resolved from DNS with DNSSEC enforcement
-7. The Ed25519 signature must verify against `canonical()`
+2. `To` must be a syntactically valid domain string
+3. `Correlation` must be a UUID string
+4. `Timestamp` must be a UTC timestamp ending in `Z`
+5. Required header fields must be non-empty: always `To`, `Subject`, `Correlation`, `Timestamp`; `From` is normalized to `Anonymous` when omitted; `Selector` is also required when DNS lookup is needed
+6. `Hash` must be present
+7. `Signature` must be present
+8. `SHA-256(canonical())` must match the stored `Hash`
+9. When needed, the public key is resolved from DNS with DNSSEC enforcement
+10. The Ed25519 signature must verify against `canonical()`
 
 ```python
 signed.verify(public_key)

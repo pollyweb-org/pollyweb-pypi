@@ -93,6 +93,7 @@ class TestMsg:
 
     def test_schema_defaults_to_current(self, msg):
         assert msg.Schema == SCHEMA
+        assert isinstance(msg.Schema, pw.Schema)
 
     def test_auto_correlation_is_uuid4(self, msg):
         parsed = uuid.UUID(msg.Correlation, version=4)
@@ -108,10 +109,11 @@ class TestMsg:
         assert e1.Correlation != e2.Correlation
 
     def test_explicit_correlation_used(self):
+        correlation = "123e4567-e89b-12d3-a456-426614174000"
         env = pw.Msg(
-            From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={}, Correlation="my-id"
+            From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={}, Correlation=correlation
         )
-        assert env.Correlation == "my-id"
+        assert env.Correlation == correlation
 
     def test_unsigned_by_default(self, msg):
         assert msg.Hash is None
@@ -120,6 +122,15 @@ class TestMsg:
     def test_from_defaults_to_empty(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.From == ""
+
+    def test_from_allows_anonymous(self):
+        msg = pw.Msg(From="Anonymous", To="b.dom", Subject="Ping")
+        assert msg.From == "Anonymous"
+
+    def test_from_allows_uuid(self):
+        sender_id = "123e4567-e89b-12d3-a456-426614174000"
+        msg = pw.Msg(From=sender_id, To="b.dom", Subject="Ping")
+        assert msg.From == sender_id
 
     def test_effective_from_defaults_to_anonymous(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
@@ -132,6 +143,49 @@ class TestMsg:
     def test_body_defaults_to_empty_dict(self):
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.Body == {}
+
+    def test_to_must_be_domain_string(self):
+        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
+            pw.Msg(To="123e4567-e89b-12d3-a456-426614174000", Subject="Ping")
+
+    def test_from_must_be_empty_anonymous_domain_or_uuid(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="From must be empty, Anonymous, a domain string, or a UUID",
+        ):
+            pw.Msg(From="not a valid sender", To="b.dom", Subject="Ping")
+
+    def test_subject_must_be_string(self):
+        with pytest.raises(pw.MsgValidationError, match="Subject must be a string"):
+            pw.Msg(To="b.dom", Subject=123)
+
+    def test_correlation_must_be_uuid(self):
+        with pytest.raises(pw.MsgValidationError, match="Correlation must be a UUID"):
+            pw.Msg(To="b.dom", Subject="Ping", Correlation="my-id")
+
+    def test_timestamp_must_be_z_timestamp(self):
+        with pytest.raises(pw.MsgValidationError, match="Timestamp must be a Z timestamp"):
+            pw.Msg(To="b.dom", Subject="Ping", Timestamp="2025-06-01T12:00:00+00:00")
+
+    def test_schema_must_be_string(self):
+        with pytest.raises(pw.MsgValidationError, match="Schema must be a string"):
+            pw.Msg(To="b.dom", Subject="Ping", Schema=123)
+
+    def test_schema_shorthand_normalizes_to_canonical_form(self):
+        msg = pw.Msg(To="b.dom", Subject="Ping", Schema=".MSG")
+        assert msg.Schema == "pollyweb.org/MSG:1.0"
+        assert isinstance(msg.Schema, pw.Schema)
+
+    def test_schema_without_version_defaults_to_1_0(self):
+        msg = pw.Msg(To="b.dom", Subject="Ping", Schema="example.org/THING")
+        assert msg.Schema == "example.org/THING:1.0"
+
+    def test_schema_must_match_schema_code_format(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="Schema must match \\{authority\\}/\\{code\\}\\[:\\{major\\}\\.\\{minor\\}\\]",
+        ):
+            pw.Msg(To="b.dom", Subject="Ping", Schema="not-a-schema")
 
 
 # ---------------------------------------------------------------------------
@@ -223,28 +277,9 @@ class TestSend:
 
         urlopen.assert_not_called()
 
-    def test_non_domain_targets_only_require_unsigned_validation(self, private_key):
-        msg = pw.Msg(
-            From="sender.dom",
-            To="123e4567-e89b-12d3-a456-426614174000",
-            Subject="Hello@Host",
-            Body={"greeting": "hi"},
-        ).sign(private_key)
-        response = object()
-
-        with patch("dns.resolver.resolve", side_effect=AssertionError("DNS should not be called")):
-            with patch("urllib.request.urlopen", return_value=response) as urlopen:
-                result = msg.send()
-
-        assert result is response
-        req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.123e4567-e89b-12d3-a456-426614174000/inbox"
-        assert req.get_method() == "POST"
-        assert json.loads(req.data.decode("utf-8")) == msg.to_dict()
-
     def test_send_validates_message_before_posting(self, msg):
         with patch("urllib.request.urlopen") as urlopen:
-            with pytest.raises(pw.MsgValidationError, match="Missing Hash"):
+            with pytest.raises(pw.MsgValidationError, match="Missing Hash|Missing Selector"):
                 msg.send()
 
         urlopen.assert_not_called()
@@ -258,7 +293,7 @@ class TestValidate:
     def test_round_trip(self, signed, public_key):
         assert signed.verify(public_key) is True
 
-    def test_uuid_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
+    def test_non_domain_sender_can_validate_with_explicit_public_key_and_no_selector(self, private_key):
         sender_id = "123e4567-e89b-12d3-a456-426614174000"
         msg = pw.Msg(
             From=sender_id,
@@ -418,6 +453,23 @@ class TestSerialization:
     def test_round_trip_unsigned(self, msg):
         assert pw.Msg.from_dict(msg.to_dict()) == msg
 
+    def test_from_dict_normalizes_schema_shorthand(self):
+        msg = pw.Msg.from_dict(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": ".MSG",
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        assert msg.Schema == "pollyweb.org/MSG:1.0"
+
     def test_round_trip_signed(self, signed):
         assert pw.Msg.from_dict(signed.to_dict()) == signed
 
@@ -479,6 +531,131 @@ class TestSerialization:
         )
         assert msg.From == "Anonymous"
 
+    def test_from_dict_rejects_non_domain_to(self):
+        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "not-a-domain",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": SCHEMA,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_invalid_from(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="From must be empty, Anonymous, a domain string, or a UUID",
+        ):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "not a valid sender",
+                        "To": "receiver.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": SCHEMA,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_non_string_subject(self):
+        with pytest.raises(pw.MsgValidationError, match="Subject must be a string"):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "receiver.dom",
+                        "Subject": 123,
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": SCHEMA,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_non_uuid_correlation(self):
+        with pytest.raises(pw.MsgValidationError, match="Correlation must be a UUID"):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "receiver.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "my-id",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": SCHEMA,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_non_z_timestamp(self):
+        with pytest.raises(pw.MsgValidationError, match="Timestamp must be a Z timestamp"):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "receiver.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00+00:00",
+                        "Selector": "pw1",
+                        "Schema": SCHEMA,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_non_string_schema(self):
+        with pytest.raises(pw.MsgValidationError, match="Schema must be a string"):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "receiver.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": 123,
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
+    def test_from_dict_rejects_invalid_schema_code(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="Schema must match \\{authority\\}/\\{code\\}\\[:\\{major\\}\\.\\{minor\\}\\]",
+        ):
+            pw.Msg.from_dict(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "receiver.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Selector": "pw1",
+                        "Schema": "not-a-schema",
+                    },
+                    "Body": {"greeting": "hi"},
+                }
+            )
+
 
 class TestParse:
     def test_parse_msg_returns_same_instance(self, msg):
@@ -490,6 +667,23 @@ class TestParse:
     def test_parse_json_string(self, msg):
         raw = json.dumps(msg.to_dict())
         assert pw.Msg.parse(raw) == msg
+
+    def test_parse_normalizes_schema_shorthand(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": ".MSG",
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        assert pw.Msg.parse(raw).Schema == "pollyweb.org/MSG:1.0"
 
     def test_parse_yaml_string(self, msg):
         raw = """
@@ -520,6 +714,166 @@ Body:
 """ % SCHEMA
         parsed = pw.Msg.parse(raw)
         assert parsed.From == "Anonymous"
+
+    def test_parse_rejects_non_domain_to(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "not-a-domain",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_invalid_from(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "not a valid sender",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="From must be empty, Anonymous, a domain string, or a UUID",
+        ):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_non_string_subject(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": 123,
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(pw.MsgValidationError, match="Subject must be a string"):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_non_uuid_correlation(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "my-id",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(pw.MsgValidationError, match="Correlation must be a UUID"):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_non_z_timestamp(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00+00:00",
+                    "Selector": "pw1",
+                    "Schema": SCHEMA,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(pw.MsgValidationError, match="Timestamp must be a Z timestamp"):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_non_string_schema(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": 123,
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(pw.MsgValidationError, match="Schema must be a string"):
+            pw.Msg.parse(raw)
+
+    def test_parse_rejects_invalid_schema_code(self):
+        raw = json.dumps(
+            {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Selector": "pw1",
+                    "Schema": "not-a-schema",
+                },
+                "Body": {"greeting": "hi"},
+            }
+        )
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="Schema must match \\{authority\\}/\\{code\\}\\[:\\{major\\}\\.\\{minor\\}\\]",
+        ):
+            pw.Msg.parse(raw)
+
+
+class TestSchema:
+    def test_schema_normalizes_shorthand(self):
+        schema = pw.Schema(".TOKEN")
+        assert schema == "pollyweb.org/TOKEN:1.0"
+        assert schema.authority == "pollyweb.org"
+        assert schema.code == "TOKEN"
+        assert schema.version == "1.0"
+        assert schema.major == 1
+        assert schema.minor == 0
+
+    def test_schema_defaults_missing_version(self):
+        assert pw.Schema("example.org/THING") == "example.org/THING:1.0"
+
+    def test_schema_preserves_explicit_version(self):
+        assert pw.Schema("example.org/THING:2.3") == "example.org/THING:2.3"
+
+    def test_schema_rejects_non_string(self):
+        with pytest.raises(TypeError, match="Schema must be a string"):
+            pw.Schema(123)
+
+    def test_schema_rejects_invalid_format(self):
+        with pytest.raises(
+            ValueError,
+            match="Schema must match \\{authority\\}/\\{code\\}\\[:\\{major\\}\\.\\{minor\\}\\]",
+        ):
+            pw.Schema("not-a-schema")
 
     def test_parse_eventbridge_dict_with_detail_mapping(self, msg):
         event = {
