@@ -3,6 +3,7 @@
 from pollyweb.dns import DNS
 from pollyweb.domain import Domain
 from pollyweb.keypair import KeyPair
+from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import (
     Msg,
     MsgValidationError,
