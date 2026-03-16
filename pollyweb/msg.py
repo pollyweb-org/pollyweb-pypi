@@ -30,22 +30,9 @@ from pollyweb.schema import Schema
 
 SCHEMA = Schema("pollyweb.org/MSG:1.0")
 
-# Struct base class must be after imports so Any is defined
-class Struct:
-    """Generic struct base class with get/require helpers."""
-    def get(self, key: str, default: Any = None) -> Any:
-        if hasattr(self, key):
-            return getattr(self, key)
-        if hasattr(self, 'Body') and isinstance(self.Body, dict):
-            return self.Body.get(key, default)
-        return default
 
-    def require(self, key: str) -> Any:
-        if hasattr(self, key):
-            return getattr(self, key)
-        if hasattr(self, 'Body') and isinstance(self.Body, dict) and key in self.Body:
-            return self.Body[key]
-        raise KeyError(f"{type(self).__name__} has no field or Body key '{key}'")
+# Import Struct from its own module
+from pollyweb.struct import Struct
 import hashlib
 import json
 import re
