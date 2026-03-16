@@ -1,6 +1,7 @@
 # pollyweb — AGENTS.md
 
 Read ~/AGENTS.md for general instructions on AGENTS development.
+Read AGENTS-user.md for general instructions on AGENTS development.
 
 ## Sync rule
 `AGENTS.md` and `CLAUDE.md` must stay identical in substance. Any change made to one file must be replicated to the other in the same update.
