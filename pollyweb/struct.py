@@ -259,6 +259,95 @@ def _normalize_for_schema(
     return value
 
 
+def _is_full_json_schema(
+    schema: Any) -> bool:
+    """Return whether *schema* already looks like a standard JSON Schema object."""
+
+    if not isinstance(schema, dict):
+        return False
+
+    schema_keywords = {
+        "$ref",
+        "$schema",
+        "additionalProperties",
+        "anyOf",
+        "default",
+        "enum",
+        "format",
+        "items",
+        "minLength",
+        "oneOf",
+        "pattern",
+        "properties",
+        "required",
+        "type",
+    }
+    return any(key in schema for key in schema_keywords)
+
+
+def _compact_string_schema(
+    schema: str) -> tuple[dict[str, Any], bool]:
+    """Convert a compact scalar schema token into JSON Schema plus required flag."""
+
+    required = schema.endswith("!")
+    token = schema[:-1] if required else schema
+
+    if token == "str":
+        converted: dict[str, Any] = {
+            "type": "string"}
+        if required:
+            converted["minLength"] = 1
+        return converted, required
+
+    raise ValueError(f"Unsupported compact schema token: {schema}")
+
+
+def _expand_compact_schema(
+    schema: Any) -> tuple[dict[str, Any], bool]:
+    """Expand the compact schema form into standard JSON Schema."""
+
+    if isinstance(schema, str):
+        return _compact_string_schema(schema)
+
+    if isinstance(schema, list):
+        if len(schema) != 1:
+            raise ValueError("Compact list schemas must contain exactly one item schema.")
+
+        items_schema, _ = _expand_compact_schema(schema[0])
+        return {
+            "type": "array",
+            "items": items_schema}, True
+
+    if isinstance(schema, dict):
+        if _is_full_json_schema(schema):
+            return schema, bool(schema.get("required"))
+
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+
+        for raw_key, raw_value in schema.items():
+            key = raw_key
+            is_optional = False
+            if raw_key.endswith("?"):
+                key = raw_key[:-1]
+                is_optional = True
+
+            property_schema, property_required = _expand_compact_schema(raw_value)
+            properties[key] = property_schema
+
+            if not is_optional and property_required:
+                required.append(key)
+
+        converted = {
+            "type": "object",
+            "properties": properties}
+        if required:
+            converted["required"] = required
+        return converted, True
+
+    raise ValueError(f"Unsupported compact schema value: {schema!r}")
+
+
 def _format_schema_error(
     err: Exception) -> str:
     """Convert a fastjsonschema error into a concise validation message."""
@@ -306,9 +395,10 @@ def _assert(
         field_name = field_name,
         error_type = error_type)
     normalized = _normalize_for_schema(payload)
+    expanded_schema, _ = _expand_compact_schema(schema)
     validator = _compiled_validator(
         json.dumps(
-            schema,
+            expanded_schema,
             sort_keys = True))
 
     try:
@@ -319,8 +409,12 @@ def _assert(
     return Struct.wrap(validated)
 
 
-# Expose ``Struct.assert(...)`` even though ``assert`` is a Python keyword.
+# Expose both ``Struct.assert(...)`` and the Python-friendly ``Struct.schema(...)``.
 setattr(
     Struct,
     "assert",
+    _assert)
+setattr(
+    Struct,
+    "schema",
     _assert)

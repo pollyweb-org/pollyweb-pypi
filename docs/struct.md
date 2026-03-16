@@ -43,13 +43,13 @@ msg.require("missing")  # KeyError
 
 ## Methods
 
-### assert
+### schema
 
 ```python
-getattr(struct, "assert")(schema: dict[str, Any], *, field_name: str = "value", error_type: type[Exception] = TypeError) -> Struct
+struct.schema(schema: dict[str, Any], *, field_name: str = "value", error_type: type[Exception] = TypeError) -> Struct
 ```
 
-Validate the wrapped mapping against a JSON Schema using `fastjsonschema`, trim strings recursively before validation, apply schema defaults, and return the validated payload as a wrapped `Struct`.
+Validate the wrapped mapping against a JSON Schema using `fastjsonschema`, trim strings recursively before validation, apply schema defaults, and return the validated payload as a wrapped `Struct`. `schema` may be either full JSON Schema or a compact PollyWeb form.
 
 **Parameters:**
 - `schema` — JSON Schema dictionary used to validate the struct
@@ -69,7 +69,7 @@ payload = pw.Struct.wrap({
 
 validated = getattr(
     payload,
-    "assert")({
+    "schema")({
     "type": "object",
     "properties": {
         "Domain": {
@@ -87,6 +87,26 @@ validated = getattr(
 validated.Domain    # "example.com"
 validated.Language  # "en-us"
 ```
+
+**Compact schema form:**
+
+```python
+validated = getattr(
+    payload,
+    "schema")({
+    "Domain": "str!",
+    "Aliases?": ["str"],
+})
+```
+
+Compact schema rules:
+- `"str"` means a string
+- `"str!"` means a required non-empty string
+- `{"Field": ...}` means an object whose required fields are inferred from the child schemas
+- `"Field?"` marks an optional object field
+- `[schema]` means an array of items matching `schema`
+- Full JSON Schema is still accepted anywhere you need defaults or more advanced rules
+- `Struct.assert(...)` remains available as an alias for compatibility
 
 ### get
 
