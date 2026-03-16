@@ -174,3 +174,18 @@ def verify_signature(
         )
 
     spec.verify(public_key, signature, message)
+
+
+def load_public_key(public_key_str: str) -> object:
+    """Load a public key from a PEM string or base64-encoded DER string.
+
+    Accepts PEM format (starts with ``-----``) or a raw base64-encoded
+    DER/raw key. Returns a cryptography public key object suitable for
+    passing to :meth:`pollyweb.Msg.verify`.
+
+    :param public_key_str: PEM or base64-encoded DER public key string.
+    :returns: A cryptography public key object.
+    :raises ValueError: If the key cannot be parsed.
+    """
+    # Encode to bytes and delegate to internal loader
+    return _load_der_or_pem_public_key(public_key_str.encode("ascii"))

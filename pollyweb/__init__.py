@@ -12,5 +12,6 @@ from pollyweb.msg import (
     MsgValidationError,
     VerificationDetails,
 )
+from pollyweb._crypto import decode_ascii_envelope, load_public_key
 from pollyweb.schema import Schema
 from pollyweb.wallet import Wallet
