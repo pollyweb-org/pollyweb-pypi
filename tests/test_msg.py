@@ -123,6 +123,22 @@ def signed(msg, private_key):
 # ---------------------------------------------------------------------------
 
 class TestMsg:
+    def test_get_and_require(self, msg):
+        # Field access
+        assert msg.get("From") == "sender.dom"
+        assert msg.get("To") == "receiver.dom"
+        # Body access
+        assert msg.get("greeting") == "hi"
+        # Default for missing
+        assert msg.get("notfound") is None
+        assert msg.get("notfound", 123) == 123
+        # require: field
+        assert msg.require("From") == "sender.dom"
+        # require: body
+        assert msg.require("greeting") == "hi"
+        # require: missing
+        with pytest.raises(KeyError):
+            msg.require("notfound")
     def test_required_fields(self, msg):
         assert msg.From == "sender.dom"
         assert msg.To == "receiver.dom"

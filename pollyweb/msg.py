@@ -229,6 +229,7 @@ class VerificationDetails:
     algorithm: str
 
 
+
 @dataclass(frozen=True, init=False)
 class Msg:
     To: str
@@ -242,6 +243,26 @@ class Msg:
     Schema: Schema
     Hash: Optional[str]
     Signature: Optional[str]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Return the value of a Msg field or Body key, or default if not found."""
+        if hasattr(self, key):
+            return getattr(self, key)
+        return self.Body.get(key, default)
+
+    def require(self, key: str) -> Any:
+        """Return the value of a Msg field or Body key, or raise KeyError if not found."""
+        if hasattr(self, key):
+            return getattr(self, key)
+        if key in self.Body:
+            return self.Body[key]
+        raise KeyError(f"Msg has no field or Body key '{key}'")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Return the value of a Msg field or Body key, or default if not found."""
+        if hasattr(self, key):
+            return getattr(self, key)
+        return self.Body.get(key, default)
 
     def __init__(
         self,
