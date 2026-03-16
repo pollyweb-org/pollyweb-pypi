@@ -11,7 +11,7 @@ from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import Msg
 
-DEFAULT_MANIFEST_URLS = (
+MANIFEST_URLS = (
     "https://{domain}/manifest",
     "https://{domain}/manifest.yaml",
     "https://{domain}/.well-known/pollyweb/manifest",
@@ -24,7 +24,7 @@ DEFAULT_MANIFEST_URLS = (
 @dataclass
 class Domain:
     Name: str
-    Selector: str
+    Selector: str = ""
     KeyPair: Optional[KeyPair] = None
     Signer: Optional[Callable[[bytes], bytes]] = None
 
@@ -46,22 +46,28 @@ class Domain:
         ) as response:
             return response.read()
 
-    @classmethod
     def fetch_manifest(
-        cls,
-        domain: str,
+        self,
+        domain: str = "",
         *,
-        manifest_urls: tuple[str, ...] = DEFAULT_MANIFEST_URLS
+        manifest_urls: tuple[str, ...] = MANIFEST_URLS
     ) -> Manifest:
         """Load the manifest for *domain* using PollyWeb URL guesses."""
+
+        # Support both ``Domain(name).fetch_manifest()`` and the legacy
+        # ``Domain.fetch_manifest(name)`` calling style.
+        if isinstance(self, Domain):
+            resolved_domain = domain or self.Name
+        else:
+            resolved_domain = domain or self
 
         last_error: Exception | None = None
 
         for template in manifest_urls:
-            url = template.format(domain = domain)
+            url = template.format(domain = resolved_domain)
 
             try:
-                raw_manifest = cls._fetch_url_bytes(url)
+                raw_manifest = Domain._fetch_url_bytes(url)
                 return Manifest.parse(raw_manifest)
             except (
                 urllib.error.URLError,
@@ -70,7 +76,7 @@ class Domain:
             ) as err:
                 last_error = err
 
-        raise RuntimeError(f"Unable to load manifest for {domain}: {last_error}")
+        raise RuntimeError(f"Unable to load manifest for {resolved_domain}: {last_error}")
 
     def _signature_algorithm(self, dkim_record: str) -> str:
         """Return the signing algorithm declared by the sender's DKIM record."""

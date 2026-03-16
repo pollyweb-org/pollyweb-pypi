@@ -51,12 +51,13 @@ reply = domain.send(
 | Field | Type | Description |
 |---|---|---|
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
-| `Selector` | `str` | Selector to publish and write into outbound messages. When `KeyPair` is present, [`domain.sign()`](domain/sign.md) may still derive the active selector from [`domain.dns()`](domain/dns.md). |
+| `Selector` | `str` | Optional selector override for domains without a local `KeyPair`. Defaults to `""`. When `KeyPair` is present, [`domain.sign()`](domain/sign.md) may still derive the active selector from [`domain.dns()`](domain/dns.md). |
 | `KeyPair` | [`KeyPair`](keypair.md) | Optional Ed25519 private/public key pair used for signing. |
 | `Signer` | `callable` | Optional external signer receiving canonical bytes and returning raw signature bytes, for example an AWS KMS signer. The signer must correspond to the key already published in the sender DKIM record. |
 
 ## Methods
 
 - [`domain.dns() → {selector: txt}`](domain/dns.md) — derives the next DKIM selector and TXT record to publish.
+- `domain.fetch_manifest(domain = "", manifest_urls = MANIFEST_URLS) → Manifest` — loads a PollyWeb manifest by trying the built-in URL guesses. When called on an instance, `domain` defaults to `Domain.Name`.
 - [`domain.sign(msg) → Msg`](domain/sign.md) — returns a new message with `From`, derived `Selector`, `Hash`, and `Signature`.
 - [`domain.send(msg) → Msg | dict | str`](domain/send.md) — signs a message, POSTs it to the receiver inbox, and returns the parsed response body (a `Msg`, a `dict`, or a `str`).
