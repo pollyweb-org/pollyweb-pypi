@@ -14,7 +14,8 @@ requires-python = ">=3.7"
 dependencies = [
     "cryptography>=41.0.0",
     "PyYAML>=6.0",
-    "dnspython>=2.0"
+    "dnspython>=2.0",
+    "fastjsonschema>=2.21.1"
 ]
 
 [project.urls]

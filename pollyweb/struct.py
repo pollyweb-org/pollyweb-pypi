@@ -1,6 +1,10 @@
 """Generic struct base class with get/require helpers for PollyWeb."""
+import json
 from collections.abc import Mapping
+from functools import lru_cache
 from typing import Any, Iterator
+
+import fastjsonschema
 
 
 class Struct:
@@ -225,3 +229,98 @@ class Struct:
             field_name = key,
             error_type = error_type,
         )
+
+
+@lru_cache(maxsize = 64)
+def _compiled_validator(
+    schema_json: str):
+    """Return a cached fastjsonschema validator for a serialized schema."""
+
+    # Compile validators once per schema so repeated validations stay fast.
+    return fastjsonschema.compile(
+        json.loads(schema_json),
+        use_default = True)
+
+
+def _normalize_for_schema(
+    value: Any) -> Any:
+    """Trim strings recursively before schema validation."""
+
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        return [_normalize_for_schema(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _normalize_for_schema(item)
+            for key, item in value.items()}
+    if isinstance(value, Struct):
+        return _normalize_for_schema(value.to_dict())
+    return value
+
+
+def _format_schema_error(
+    err: Exception) -> str:
+    """Convert a fastjsonschema error into a concise validation message."""
+
+    path = getattr(err, "path", [])
+    rule = getattr(err, "rule", "")
+    value = getattr(err, "value", None)
+
+    if path:
+        field_name = str(path[-1])
+    else:
+        field_name = "value"
+
+    if rule == "required" and isinstance(value, dict):
+        missing = str(err).split("must contain", 1)[-1].strip().strip("'\"")
+        missing = missing.replace("properties", "").strip()
+        if missing:
+            return f"Missing {missing}."
+
+    if rule == "type":
+        if "object" in str(err):
+            return f"{field_name} must be an object."
+        if "array" in str(err):
+            return f"{field_name} must be a list."
+        if "string" in str(err):
+            return f"{field_name} must be a string."
+
+    if rule == "minLength":
+        return f"Missing {field_name}."
+
+    return str(err)
+
+
+def _assert(
+    self: Struct,
+    schema: dict[str, Any],
+    *,
+    field_name: str = "value",
+    error_type: type[Exception] = TypeError
+) -> Struct:
+    """Validate this struct against JSON Schema and return the wrapped result."""
+
+    payload = Struct.mapping(
+        self,
+        field_name = field_name,
+        error_type = error_type)
+    normalized = _normalize_for_schema(payload)
+    validator = _compiled_validator(
+        json.dumps(
+            schema,
+            sort_keys = True))
+
+    try:
+        validated = validator(normalized)
+    except fastjsonschema.JsonSchemaException as err:
+        raise error_type(_format_schema_error(err)) from err
+
+    return Struct.wrap(validated)
+
+
+# Expose ``Struct.assert(...)`` even though ``assert`` is a Python keyword.
+setattr(
+    Struct,
+    "assert",
+    _assert)

@@ -43,6 +43,51 @@ msg.require("missing")  # KeyError
 
 ## Methods
 
+### assert
+
+```python
+getattr(struct, "assert")(schema: dict[str, Any], *, field_name: str = "value", error_type: type[Exception] = TypeError) -> Struct
+```
+
+Validate the wrapped mapping against a JSON Schema using `fastjsonschema`, trim strings recursively before validation, apply schema defaults, and return the validated payload as a wrapped `Struct`.
+
+**Parameters:**
+- `schema` — JSON Schema dictionary used to validate the struct
+- `field_name` — Field label used in type mismatch errors (default: `"value"`)
+- `error_type` — Exception class raised when validation fails (default: `TypeError`)
+
+**Returns:** A wrapped `Struct` containing the validated and default-populated data
+
+**Raises:** `error_type` if the value is not an object or fails schema validation
+
+**Example:**
+
+```python
+payload = pw.Struct.wrap({
+    "Domain": " example.com ",
+})
+
+validated = getattr(
+    payload,
+    "assert")({
+    "type": "object",
+    "properties": {
+        "Domain": {
+            "type": "string",
+            "minLength": 1,
+        },
+        "Language": {
+            "type": "string",
+            "default": "en-us",
+        },
+    },
+    "required": ["Domain"],
+})
+
+validated.Domain    # "example.com"
+validated.Language  # "en-us"
+```
+
 ### get
 
 ```python
