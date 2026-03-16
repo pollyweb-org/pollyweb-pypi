@@ -468,8 +468,16 @@ class Msg:
         return self.verify(public_key)
 
     def send(self):
-        """Validate this message, POST it to the receiver inbox, and return the HTTP response."""
-        self.verify()
+        """Validate this message, POST it to the receiver inbox, and return the HTTP response.
+
+        When ``From`` is a domain name, signature is verified via DKIM DNS.
+        When ``From`` is ``"Anonymous"`` or a UUID, only structure and hash are
+        validated (no DNS lookup possible for non-domain senders).
+        """
+        if _is_domain_name(self._effective_from()):
+            self.verify()
+        else:
+            self.validate_unsigned()
         url = f"https://pw.{self.To}/inbox"
         body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
         req = urllib.request.Request(

@@ -1,5 +1,10 @@
 # pollyweb — AGENTS.md
 
+## Python
+- Break method parameters into multiple lines when more than one
+- Add comments across all files to explain the purpose of each step, especially in tests
+- Don't change the signature of existing public methods; add new methods if needed
+
 ## Sync rule
 `AGENTS.md` and `CLAUDE.md` must stay identical in substance. Any change made to one file must be replicated to the other in the same update.
 

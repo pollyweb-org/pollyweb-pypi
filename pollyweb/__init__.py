@@ -13,3 +13,4 @@ from pollyweb.msg import (
     VerificationDetails,
 )
 from pollyweb.schema import Schema
+from pollyweb.wallet import Wallet
