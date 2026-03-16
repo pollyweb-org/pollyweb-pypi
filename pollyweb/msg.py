@@ -502,11 +502,16 @@ class Msg:
         return self.verify(public_key)
 
     def send(self):
-        """Validate this message, POST it to the receiver inbox, and return the HTTP response.
+        """Validate this message, POST it to the receiver inbox, and return the parsed response.
 
         When ``From`` is a domain name, signature is verified via DKIM DNS.
         When ``From`` is ``"Anonymous"`` or a UUID, only structure and hash are
         validated (no DNS lookup possible for non-domain senders).
+
+        The response body is parsed automatically:
+        - Returns a ``Msg`` if the server replies with a PollyWeb message.
+        - Returns a ``dict`` if the response is JSON but not a valid ``Msg``.
+        - Returns a ``str`` if the response body is not valid JSON.
         """
         if _is_domain_name(self._effective_from()):
             self.verify()
@@ -520,7 +525,18 @@ class Msg:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        return urllib.request.urlopen(req)
+        resp = urllib.request.urlopen(req)
+        raw = resp.read()
+        # Parse the response body into a structured object rather than raw bytes.
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return raw.decode("utf-8", errors="replace")
+        # Attempt to interpret the response as a PollyWeb Msg.
+        try:
+            return Msg.parse(data)
+        except (TypeError, MsgValidationError, KeyError, ValueError):
+            return data
 
     def to_dict(self) -> Dict[str, Any]:
         header: Dict[str, Any] = {

@@ -39,6 +39,9 @@ class Wallet:
         return replace(msg, From=self.ID).sign(self.KeyPair.PrivateKey)
 
     def send(self, msg: Msg):
-        """Sign *msg*, POST it to the receiver inbox, and return the HTTP response."""
+        """Sign *msg*, POST it to the receiver inbox, and return the parsed response.
+
+        Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
+        """
         signed = self.sign(msg)
         return signed.send()

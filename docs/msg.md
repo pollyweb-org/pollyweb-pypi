@@ -140,7 +140,7 @@ Extra keyword arguments are merged into `Body` at construction time, so `Msg(To=
 - `pollyweb.dkim_public_key_value(public_key) -> str` — returns the DKIM `p=` value for an Ed25519 public key.
 - `pollyweb.decode_transport_bytes(value) -> bytes` — decodes an ASCII-armored transport payload into raw bytes.
 - `pollyweb.decode_transport_text(value, errors="strict") -> str` — decodes an ASCII-armored transport payload into UTF-8 text.
-- [`msg.send() → HTTPResponse`](msg/send.md) — validates the message and POSTs it to the receiver inbox.
+- [`msg.send() → Msg | dict | str`](msg/send.md) — validates the message, POSTs it to the receiver inbox, and returns the parsed response body (a `Msg`, a `dict`, or a `str`).
 - [`msg.verify(public_key=None) → bool`](msg/verify.md) — validates structure, hash, and the configured signature algorithm.
 - [`msg.verify_details(public_key=None) → VerificationDetails`](msg/verify_details.md) — validates the message and returns the verified fields as structured data.
 - [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.

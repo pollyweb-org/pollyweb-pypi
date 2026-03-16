@@ -56,9 +56,9 @@ pw.Wallet(KeyPair=pw.KeyPair(), ID="<uuid4>")
 Returns a new `Msg` with `From` set to `wallet.ID`, signed with the wallet's private key.
 The original `msg` is unchanged (frozen dataclass).
 
-### `wallet.send(msg) → HTTPResponse`
+### `wallet.send(msg) → Msg | dict | str`
 
 Signs `msg` then POSTs it to `https://pw.{msg.To}/inbox`.
 Because `From` is not a domain, only structure and hash are validated before sending (no DNS lookup).
-Returns the `urllib.request.urlopen` response object.
+Returns the parsed response body: a `Msg` if the server replies with a PollyWeb message, a `dict` if the response is JSON, or a `str` otherwise.
 Raises `urllib.error.URLError` on network failure.

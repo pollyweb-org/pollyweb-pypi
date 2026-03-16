@@ -378,14 +378,16 @@ class TestSign:
 
 class TestSend:
     def test_posts_to_receiver_inbox_and_returns_response(self, signed, public_key):
-        response = object()
+        # Simulate a server that replies with a JSON ack dict.
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
 
         resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
         with resolver_patch:
-            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
                 result = signed.send()
 
-        assert result is response
+        assert result == {"status": "ok"}
         req = urlopen.call_args.args[0]
         assert req.full_url == "https://pw.receiver.dom/inbox"
         assert req.get_method() == "POST"
@@ -393,14 +395,15 @@ class TestSend:
         assert json.loads(req.data.decode("utf-8")) == signed.to_dict()
 
     def test_send_verifies_signature_before_posting_domain_targets(self, signed, public_key):
-        response = object()
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
 
         resolver_patch, resolver = _mock_dns_resolver(_dkim_dns_answer(public_key))
         with resolver_patch:
-            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
                 result = signed.send()
 
-        assert result is response
+        assert result == {"status": "ok"}
         assert resolver.resolve.call_args_list == [
             call("pw.sender.dom", "DS", raise_on_no_answer=False),
             call("pw1._domainkey.pw.sender.dom", "TXT"),
@@ -1309,15 +1312,16 @@ class TestDomain:
 
     def test_send_signs_then_posts_and_returns_response(self, domain, public_key):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
-        response = object()
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
 
         with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
             resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
             with resolver_patch:
-                with patch("urllib.request.urlopen", return_value=response):
+                with patch("urllib.request.urlopen", return_value=mock_response):
                     result = domain.send(msg)
 
-        assert result is response
+        assert result == {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
