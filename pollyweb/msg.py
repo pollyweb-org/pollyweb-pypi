@@ -229,19 +229,53 @@ class VerificationDetails:
     algorithm: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class Msg:
     To: str
     Subject: str
-    From: str = ""
-    Selector: str = ""
-    Algorithm: str = ""
-    Body: Dict[str, Any] = field(default_factory=dict)
-    Correlation: str = field(default_factory=lambda: str(uuid.uuid4()))
-    Timestamp: str = field(default_factory=_utc_now)
-    Schema: Schema = SCHEMA
-    Hash: Optional[str] = None
-    Signature: Optional[str] = None
+    From: str
+    Selector: str
+    Algorithm: str
+    Body: Dict[str, Any]
+    Correlation: str
+    Timestamp: str
+    Schema: Schema
+    Hash: Optional[str]
+    Signature: Optional[str]
+
+    def __init__(
+        self,
+        To: str,
+        Subject: str,
+        *,
+        From: str = "",
+        Selector: str = "",
+        Algorithm: str = "",
+        Body: Dict[str, Any] = None,
+        Correlation: str = None,
+        Timestamp: str = None,
+        Schema: "Schema" = SCHEMA,
+        Hash: Optional[str] = None,
+        Signature: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        # Merge any extra keyword arguments into Body as convenience shorthand
+        merged_body: Dict[str, Any] = dict(Body) if Body is not None else {}
+        if kwargs:
+            merged_body.update(kwargs)
+
+        object.__setattr__(self, "To", To)
+        object.__setattr__(self, "Subject", Subject)
+        object.__setattr__(self, "From", From)
+        object.__setattr__(self, "Selector", Selector)
+        object.__setattr__(self, "Algorithm", Algorithm)
+        object.__setattr__(self, "Body", merged_body)
+        object.__setattr__(self, "Correlation", Correlation if Correlation is not None else str(uuid.uuid4()))
+        object.__setattr__(self, "Timestamp", Timestamp if Timestamp is not None else _utc_now())
+        object.__setattr__(self, "Schema", Schema)
+        object.__setattr__(self, "Hash", Hash)
+        object.__setattr__(self, "Signature", Signature)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         if not _is_domain_name(self.To):
