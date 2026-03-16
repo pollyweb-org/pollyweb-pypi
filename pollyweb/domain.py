@@ -2,12 +2,23 @@
 from dataclasses import dataclass, replace
 import json
 from typing import Callable, Optional
+import urllib.error
 import urllib.request
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorithm_for_dkim_record
 from pollyweb.keypair import KeyPair
+from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import Msg
+
+DEFAULT_MANIFEST_URLS = (
+    "https://{domain}/manifest",
+    "https://{domain}/manifest.yaml",
+    "https://{domain}/.well-known/pollyweb/manifest",
+    "https://{domain}/.well-known/pollyweb/manifest.yaml",
+    "https://pw.{domain}/manifest",
+    "https://pw.{domain}/manifest.yaml",
+)
 
 
 @dataclass
@@ -16,6 +27,50 @@ class Domain:
     Selector: str
     KeyPair: Optional[KeyPair] = None
     Signer: Optional[Callable[[bytes], bytes]] = None
+
+    @staticmethod
+    def _fetch_url_bytes(
+        url: str
+    ) -> bytes:
+        """Fetch raw manifest bytes from *url*."""
+
+        request = urllib.request.Request(
+            url,
+            headers = {
+                "Accept": "application/json, application/yaml, text/yaml, text/plain"},
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout = 10,
+        ) as response:
+            return response.read()
+
+    @classmethod
+    def fetch_manifest(
+        cls,
+        domain: str,
+        *,
+        manifest_urls: tuple[str, ...] = DEFAULT_MANIFEST_URLS
+    ) -> Manifest:
+        """Load the manifest for *domain* using PollyWeb URL guesses."""
+
+        last_error: Exception | None = None
+
+        for template in manifest_urls:
+            url = template.format(domain = domain)
+
+            try:
+                raw_manifest = cls._fetch_url_bytes(url)
+                return Manifest.parse(raw_manifest)
+            except (
+                urllib.error.URLError,
+                urllib.error.HTTPError,
+                ManifestValidationError,
+            ) as err:
+                last_error = err
+
+        raise RuntimeError(f"Unable to load manifest for {domain}: {last_error}")
 
     def _signature_algorithm(self, dkim_record: str) -> str:
         """Return the signing algorithm declared by the sender's DKIM record."""

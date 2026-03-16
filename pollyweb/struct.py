@@ -35,6 +35,54 @@ class Struct:
         return value
 
     @classmethod
+    def list(
+        cls,
+        value: Any,
+        *,
+        field_name: str,
+        error_type: type[Exception] = TypeError
+    ) -> list[Any]:
+        """Validate that *value* is a list and return a shallow copy."""
+
+        if not isinstance(value, list):
+            raise error_type(f"{field_name} must be a list.")
+
+        return list(value)
+
+    @classmethod
+    def mapping(
+        cls,
+        value: Any,
+        *,
+        field_name: str,
+        error_type: type[Exception] = TypeError
+    ) -> dict[str, Any]:
+        """Validate that *value* is a mapping-like object and return a plain dict."""
+
+        if not isinstance(value, (Mapping, Struct)):
+            raise error_type(f"{field_name} must be an object.")
+
+        if isinstance(value, Struct):
+            return value.to_dict()
+
+        return dict(value)
+
+    @classmethod
+    def coerce_string(
+        cls,
+        value: Any,
+        *,
+        field_name: str,
+        error_type: type[Exception] = TypeError
+    ) -> str:
+        """Validate that *value* is a non-empty string and return it trimmed."""
+
+        if not isinstance(value, str) or not value.strip():
+            raise error_type(f"Missing {field_name}.")
+
+        return value.strip()
+
+    @classmethod
     def unwrap(
         cls,
         value: Any) -> Any:
@@ -159,3 +207,21 @@ class Struct:
             return value
 
         raise KeyError(f"{type(self).__name__} has no field or Body key '{key}'")
+
+    def require_string(
+        self,
+        key: str,
+        *,
+        error_type: type[Exception] = KeyError
+    ) -> str:
+        """Return a required non-empty string field or Body key."""
+
+        value = self.get(key, self._MISSING)
+        if value is self._MISSING:
+            raise error_type(f"Missing {key}.")
+
+        return type(self).coerce_string(
+            value,
+            field_name = key,
+            error_type = error_type,
+        )

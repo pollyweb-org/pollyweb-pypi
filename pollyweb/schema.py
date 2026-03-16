@@ -64,3 +64,35 @@ class Schema(str):
         obj.major = int(major)
         obj.minor = int(minor)
         return obj
+
+
+def schema_path_without_version(
+    schema_code: str
+) -> str:
+    """Return *schema_code* without its version suffix."""
+
+    schema = Schema(schema_code)
+    return f"{schema.authority}/{schema.code}"
+
+
+def schema_matches(
+    query: str,
+    schema_code: str
+) -> bool:
+    """Return True when *query* covers *schema_code*."""
+
+    if not isinstance(query, str):
+        query = ""
+
+    query_value = query.strip()
+    if not query_value or query_value in {"ANY", "*"}:
+        return True
+
+    schema_without_version = schema_path_without_version(schema_code)
+    query_without_version = query_value.split(":", 1)[0]
+
+    if query_without_version.endswith("/*"):
+        prefix = query_without_version[:-1]
+        return schema_without_version.startswith(prefix)
+
+    return query_without_version == schema_without_version
