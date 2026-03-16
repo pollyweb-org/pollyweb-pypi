@@ -4,6 +4,8 @@ Constructs a [`Msg`](../msg.md) from a wire-format dictionary.
 
 The input must follow the PollyWeb message shape with top-level `Header` and `Body` entries, plus optional `Hash` and `Signature`.
 
+`Body` may be either a mapping or a string. Mapping bodies are wrapped as a [`Struct`](../struct.md) on the resulting `Msg`, while string bodies remain plain strings.
+
 If `Header.From` is missing or empty, `from_dict()` sets `msg.From` to `Anonymous`. Otherwise `Header.From` must be `Anonymous`, a domain string, or a UUID. If `Header.Selector` is missing or empty, `msg.Selector` is set to `""`.
 
 `Header.To` must be a syntactically valid domain string. Otherwise `from_dict()` raises `MsgValidationError`.

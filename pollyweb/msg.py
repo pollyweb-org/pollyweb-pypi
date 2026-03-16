@@ -7,7 +7,7 @@ import json
 import re
 import urllib.request
 import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Mapping, Optional, Union
 
@@ -28,37 +28,7 @@ from pollyweb._crypto import (
 from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
 from pollyweb._crypto import signature_algorithm_for_dkim_key_type
 from pollyweb.schema import Schema
-
-SCHEMA = Schema("pollyweb.org/MSG:1.0")
-
-
-# Import Struct from its own module
 from pollyweb.struct import Struct
-import hashlib
-import json
-import re
-import urllib.request
-import uuid
-from dataclasses import dataclass, field, replace
-from datetime import date, datetime, timezone
-from typing import Any, Dict, Mapping, Optional, Union
-
-from cryptography.exceptions import InvalidSignature
-import yaml
-
-from pollyweb._crypto import (
-    decode_ascii_envelope,
-    encode_signature,
-    encode_dkim_public_key,
-    canonical_signature_algorithm,
-    load_dkim_public_key,
-    sign_message,
-    signature_algorithm_for_private_key,
-    signature_algorithm_for_public_key,
-    verify_signature,
-)
-from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
-from pollyweb.schema import Schema
 
 SCHEMA = Schema("pollyweb.org/MSG:1.0")
 
@@ -270,19 +240,12 @@ class Msg(Struct):
     From: str
     Selector: str
     Algorithm: str
-    Body: Dict[str, Any]
+    Body: Any
     Correlation: str
     Timestamp: str
     Schema: Schema
     Hash: Optional[str]
     Signature: Optional[str]
-
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Return the value of a Msg field or Body key, or default if not found."""
-        if hasattr(self, key):
-            return getattr(self, key)
-        return self.Body.get(key, default)
 
     def __init__(
         self,
@@ -292,7 +255,7 @@ class Msg(Struct):
         From: str = "",
         Selector: str = "",
         Algorithm: str = "",
-        Body: Dict[str, Any] = None,
+        Body: Any = None,
         Correlation: str = None,
         Timestamp: str = None,
         Schema: "Schema" = SCHEMA,
@@ -300,9 +263,23 @@ class Msg(Struct):
         Signature: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
-        # Merge any extra keyword arguments into Body as convenience shorthand
-        merged_body: Dict[str, Any] = dict(Body) if Body is not None else {}
+        # Merge any extra keyword arguments into Body as convenience shorthand.
+        if Body is None:
+            merged_body: Any = {}
+        elif isinstance(Body, Mapping):
+            merged_body = dict(Body)
+        elif isinstance(Body, Struct):
+            merged_body = Body.to_dict()
+        elif isinstance(Body, str):
+            if kwargs:
+                raise MsgValidationError("Body string cannot be merged with extra keyword arguments")
+            merged_body = Body
+        else:
+            raise MsgValidationError("Body must be a mapping or a string")
+
         if kwargs:
+            if not isinstance(merged_body, dict):
+                raise MsgValidationError("Body must be a mapping when extra keyword arguments are provided")
             merged_body.update(kwargs)
 
         object.__setattr__(self, "To", To)
@@ -310,7 +287,7 @@ class Msg(Struct):
         object.__setattr__(self, "From", From)
         object.__setattr__(self, "Selector", Selector)
         object.__setattr__(self, "Algorithm", Algorithm)
-        object.__setattr__(self, "Body", merged_body)
+        object.__setattr__(self, "Body", Struct.wrap(merged_body))
         object.__setattr__(self, "Correlation", Correlation if Correlation is not None else str(uuid.uuid4()))
         object.__setattr__(self, "Timestamp", Timestamp if Timestamp is not None else _utc_now())
         object.__setattr__(self, "Schema", Schema)
@@ -340,6 +317,8 @@ class Msg(Struct):
             raise MsgValidationError(
                 "From must be empty, Anonymous, a domain string, or a UUID"
             )
+        if not isinstance(self.Body, (Struct, str)):
+            raise MsgValidationError("Body must be a mapping or a string")
 
     def _effective_from(self) -> str:
         """Return the sender name used on the wire and in canonicalization."""
@@ -361,7 +340,7 @@ class Msg(Struct):
             header["Algorithm"] = self.Algorithm
 
         payload = {
-            "Body": self.Body,
+            "Body": Struct.unwrap(self.Body),
             "Header": header,
         }
         return json.dumps(
@@ -602,7 +581,7 @@ class Msg(Struct):
 
         d: Dict[str, Any] = {
             "Header": header,
-            "Body": self.Body,
+            "Body": Struct.unwrap(self.Body),
         }
         if self.Hash is not None:
             d["Hash"] = self.Hash

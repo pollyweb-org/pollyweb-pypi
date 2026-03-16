@@ -22,3 +22,5 @@ Serializes the message to a Python dictionary matching the PollyWeb wire format.
 The result is suitable for `json.dumps()` or transport over HTTP.
 
 If `msg.From` is empty, `to_dict()` writes `Header.From` as `Anonymous`. If `msg.Selector` is empty, `to_dict()` omits `Header.Selector`.
+
+If `msg.Body` is a wrapped [`Struct`](../struct.md), `to_dict()` unwraps it back into a plain mapping. String bodies are emitted unchanged.

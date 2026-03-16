@@ -124,10 +124,10 @@ def signed(msg, private_key):
 
 class TestMsg:
     def test_get_and_require(self, msg):
-        # Field access
+        # Field access should still resolve top-level headers first.
         assert msg.get("From") == "sender.dom"
         assert msg.get("To") == "receiver.dom"
-        # Body access
+        # Body access should fall back to the wrapped Body struct.
         assert msg.get("greeting") == "hi"
         # Default for missing
         assert msg.get("notfound") is None
@@ -139,6 +139,80 @@ class TestMsg:
         # require: missing
         with pytest.raises(KeyError):
             msg.require("notfound")
+
+    def test_body_mapping_is_wrapped_as_struct(self):
+        # Nested mappings should support both attribute and helper-based access.
+        msg = pw.Msg(
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={
+                "greeting": "hi",
+                "meta": {
+                    "lang": "en",
+                },
+            },
+        )
+
+        assert msg.Body.greeting == "hi"
+        assert msg.Body.get("greeting") == "hi"
+        assert msg.Body.require("greeting") == "hi"
+        assert msg.Body.meta.lang == "en"
+
+    def test_msg_get_prefers_header_over_body(self):
+        # Header fields must win when Body uses the same key name.
+        msg = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={
+                "Subject": "BodySubject",
+                "payload": "value",
+            },
+        )
+
+        assert msg.get("Subject") == "Hello@Host"
+        assert msg.require("Subject") == "Hello@Host"
+        assert msg.get("payload") == "value"
+
+    def test_msg_attribute_falls_back_to_body(self):
+        # Missing Msg attributes should fall back to Body keys.
+        msg = pw.Msg(
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={
+                "payload": "value",
+                "meta": {
+                    "lang": "en",
+                },
+            },
+        )
+
+        assert msg.payload == "value"
+        assert msg.meta.lang == "en"
+
+    def test_msg_attribute_prefers_header_over_body(self):
+        # Real Msg fields should still win over Body keys with the same name.
+        msg = pw.Msg(
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body={"Subject": "BodySubject"},
+        )
+
+        assert msg.Subject == "Hello@Host"
+
+    def test_body_can_be_plain_string(self):
+        # String bodies should remain strings and round-trip cleanly.
+        msg = pw.Msg(
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Body="hello world",
+        )
+
+        assert msg.Body == "hello world"
+        assert msg.to_dict()["Body"] == "hello world"
+
+        with pytest.raises(AttributeError):
+            _ = msg.hello
     def test_required_fields(self, msg):
         assert msg.From == "sender.dom"
         assert msg.To == "receiver.dom"
