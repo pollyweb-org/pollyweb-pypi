@@ -6,10 +6,6 @@ from pollyweb.keypair import KeyPair
 from pollyweb.msg import Msg
 
 
-def _new_uuid() -> str:
-    return str(uuid.uuid4())
-
-
 @dataclass
 class Wallet:
     """A self-contained signing authority that sends messages without a domain.
@@ -20,7 +16,7 @@ class Wallet:
     """
 
     KeyPair: KeyPair = field(default_factory=KeyPair)
-    ID: str = field(default_factory=_new_uuid)
+    ID: str = "Anonymous"
 
     def __post_init__(self) -> None:
         if self.ID != "Anonymous":
