@@ -26,6 +26,7 @@ from pollyweb._crypto import (
     verify_signature,
 )
 from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
+from pollyweb._crypto import signature_algorithm_for_dkim_key_type
 from pollyweb.schema import Schema
 
 SCHEMA = Schema("pollyweb.org/MSG:1.0")
@@ -507,7 +508,14 @@ class Msg(Struct):
             raise MsgValidationError(f"Malformed signature: {exc}") from exc
 
         signature_algorithm = self.Algorithm or None
-        if public_key is not None and signature_algorithm is None:
+        if dns_lookup_used and key_type is not None:
+            dns_algorithm = signature_algorithm_for_dkim_key_type(key_type)
+            if signature_algorithm is not None and signature_algorithm != dns_algorithm:
+                raise MsgValidationError(
+                    f"Signature algorithm {signature_algorithm} does not match DKIM algorithm {dns_algorithm}"
+                )
+            signature_algorithm = dns_algorithm
+        elif public_key is not None and signature_algorithm is None:
             signature_algorithm = signature_algorithm_for_public_key(public_key)
 
         try:

@@ -131,6 +131,16 @@ def signature_algorithm_for_public_key(public_key: object) -> str:
     raise TypeError(f"Unsupported public key type: {type(public_key).__name__}")
 
 
+def signature_algorithm_for_dkim_key_type(key_type: str) -> str:
+    """Return the default signature algorithm for a DKIM key type."""
+    lowered = key_type.lower()
+    if lowered == "ed25519":
+        return "ed25519-sha256"
+    if lowered == "rsa":
+        return "rsa-sha256"
+    raise ValueError(f"Unsupported DKIM key algorithm: {key_type}")
+
+
 def sign_message(private_key: object, message: bytes, *, signature_algorithm: Optional[str] = None) -> tuple[bytes, str]:
     algorithm_name = signature_algorithm_for_private_key(private_key) if signature_algorithm is None else canonical_signature_algorithm(signature_algorithm)
     spec = SIGNATURE_ALGORITHMS[algorithm_name]

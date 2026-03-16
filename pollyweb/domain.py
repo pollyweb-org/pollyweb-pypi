@@ -5,7 +5,7 @@ from typing import Callable, Optional
 import urllib.request
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from pollyweb.dns import fetch_dkim_entries
+from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorithm_for_dkim_record
 from pollyweb.keypair import KeyPair
 from pollyweb.msg import Msg
 
@@ -16,6 +16,10 @@ class Domain:
     Selector: str
     KeyPair: Optional[KeyPair] = None
     Signer: Optional[Callable[[bytes], bytes]] = None
+
+    def _signature_algorithm(self, dkim_record: str) -> str:
+        """Return the signing algorithm declared by the sender's DKIM record."""
+        return signature_algorithm_for_dkim_record(dkim_record)
 
     def dns(self):
         """Return ``{selector: txt}`` for publishing this domain's DKIM key.
@@ -58,18 +62,30 @@ class Domain:
 
     def sign(self, msg: Msg) -> Msg:
         """Return a new Msg with From/Selector derived from this domain and a signature."""
-        selector = next(iter(self.dns()))
+        dkim_entries = self.dns()
+        selector, dkim_record = next(iter(dkim_entries.items()))
         prepared = replace(msg, From=self.Name, Selector=selector)
 
         if self.KeyPair is not None:
-            return prepared.sign(self.KeyPair.PrivateKey)
+            algorithm = self._signature_algorithm(dkim_record)
+            return replace(prepared, Algorithm = algorithm).sign(self.KeyPair.PrivateKey)
 
         if self.Signer is None:
             raise ValueError("Domain requires either KeyPair or Signer to sign messages.")
 
+        if not dkim_record:
+            lookup = fetch_dkim_entry(self.Name, selector, require_dnssec = False)
+            if lookup is None:
+                raise ValueError(
+                    f"Missing DKIM TXT at {selector}._domainkey.pw.{self.Name}; cannot determine signature algorithm."
+                )
+            _, _, dkim_record = lookup
+
+        algorithm = self._signature_algorithm(dkim_record)
+
         return prepared.sign_with(
             self.Signer,
-            signature_algorithm="ed25519-sha256",
+            signature_algorithm = algorithm,
         )
 
     def send(self, msg: Msg):

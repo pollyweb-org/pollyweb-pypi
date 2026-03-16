@@ -17,12 +17,12 @@ The TXT record must follow the DKIM wire format:
 v=DKIM1; k=<key-type>; p=<base64-encoded public key>
 ```
 
-The message header may also contain `Algorithm`, which identifies the signature algorithm used for `Signature`. PollyWeb currently supports:
+The message header may also contain `Algorithm`, which identifies the signature algorithm used for `Signature`. For domain messages, the sender DKIM record remains authoritative, and PollyWeb requires the header to agree with DNS. PollyWeb currently supports:
 
 - `Algorithm=ed25519-sha256` with `k=ed25519`
 - `Algorithm=rsa-sha256` with `k=rsa`
 
-If `Algorithm` is omitted, `verify()` keeps legacy compatibility for Ed25519 messages by inferring `ed25519-sha256`.
+If `Algorithm` is omitted, `verify()` keeps legacy compatibility by inferring the algorithm from the verified public key or the sender DKIM key type.
 
 DNSSEC is required. The `pw.{From}` branch validation and the DKIM TXT response
 must both have the `AD` flag set.

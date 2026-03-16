@@ -4,7 +4,11 @@ import base64
 from dataclasses import dataclass
 from typing import Optional
 
-from pollyweb._crypto import KEY_TYPE_LOADERS, load_dkim_public_key
+from pollyweb._crypto import (
+    KEY_TYPE_LOADERS,
+    load_dkim_public_key,
+    signature_algorithm_for_dkim_key_type,
+)
 
 
 def _parse_dkim_txt(txt: str) -> dict[str, str]:
@@ -15,6 +19,19 @@ def _parse_dkim_txt(txt: str) -> dict[str, str]:
             k, v = part.split("=", 1)
             params[k.strip()] = v.strip()
     return params
+
+
+def dkim_key_type_from_record(txt: str) -> str:
+    """Return the DKIM key type declared by a TXT record."""
+    key_type = _parse_dkim_txt(txt).get("k", "").lower()
+    if key_type not in KEY_TYPE_LOADERS:
+        raise ValueError(f"Unsupported DKIM key algorithm in record: {key_type or '<missing>'}")
+    return key_type
+
+
+def signature_algorithm_for_dkim_record(txt: str) -> str:
+    """Return the preferred signature algorithm for a DKIM TXT record."""
+    return signature_algorithm_for_dkim_key_type(dkim_key_type_from_record(txt))
 
 
 def pollyweb_domain(domain: str) -> str:

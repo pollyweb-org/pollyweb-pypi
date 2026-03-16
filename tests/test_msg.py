@@ -559,6 +559,20 @@ class TestValidate:
         with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
             replace(signed, Selector="").verify()
 
+    def test_domain_verification_rejects_header_algorithm_that_disagrees_with_sender_dkim(self, signed, private_key, public_key):
+        """The sender DKIM record is authoritative for the domain message algorithm."""
+        mismatched = replace(signed, Algorithm="rsa-sha256").with_signature(
+            private_key.sign(replace(signed, Algorithm="rsa-sha256").canonical()),
+        )
+        resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key, key_type="ed25519"))
+
+        with resolver_patch:
+            with pytest.raises(
+                pw.MsgValidationError,
+                match="does not match DKIM algorithm ed25519-sha256",
+            ):
+                mismatched.verify()
+
     def test_missing_from_required_when_verifying(self, private_key):
         msg = pw.Msg(
             To="receiver.dom",
@@ -634,12 +648,56 @@ class TestDomainSign:
             Signer=external_signer)
 
         msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
-        signed = domain.sign(msg)
+
+        with patch(
+            "pollyweb.domain.fetch_dkim_entry",
+            return_value=("pw9", b"raw", "v=DKIM1; k=ed25519; p=test"),
+        ):
+            signed = domain.sign(msg)
 
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw9"
         assert signer_calls == [signed.canonical()]
+        assert signed.Algorithm == "ed25519-sha256"
         assert signed.verify(private_key.public_key()) is True
+
+    def test_domain_sign_with_external_signer_derives_algorithm_from_dkim_record(self, private_key):
+        """External signers must use the algorithm declared by the sender DKIM record."""
+        signer_calls = []
+
+        def external_signer(canonical: bytes) -> bytes:
+            """Sign canonical bytes with the test private key."""
+            signer_calls.append(canonical)
+            return private_key.sign(canonical)
+
+        domain = pw.Domain(
+            Name="sender.dom",
+            Selector="pw9",
+            Signer=external_signer)
+
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+
+        with patch(
+            "pollyweb.domain.fetch_dkim_entry",
+            return_value=("pw9", b"raw", "v=DKIM1; k=ed25519; p=test"),
+        ):
+            signed = domain.sign(msg)
+
+        assert signed.Algorithm == "ed25519-sha256"
+        assert signer_calls == [signed.canonical()]
+
+    def test_domain_sign_raises_when_external_signer_selector_has_no_dkim_record(self, private_key):
+        """External signers need DKIM metadata to choose the correct algorithm."""
+        domain = pw.Domain(
+            Name="sender.dom",
+            Selector="pw9",
+            Signer=lambda canonical: private_key.sign(canonical))
+
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+
+        with patch("pollyweb.domain.fetch_dkim_entry", return_value=None):
+            with pytest.raises(ValueError, match="Missing DKIM TXT"):
+                domain.sign(msg)
 
 
 # ---------------------------------------------------------------------------

@@ -214,11 +214,11 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 
 **Immutability** — `Msg` is a frozen dataclass. `sign()` returns a new instance rather than mutating in place, making it safe to pass unsigned messages around without risk of accidental modification.
 
-**Algorithm agility** — PollyWeb now stores the signature algorithm in `Header.Algorithm` and validates it against the DKIM key type (`k=`) published in DNS. This matches the direction of standard DKIM, where the signature algorithm and DNS key type are related but distinct pieces of metadata.
+**Algorithm agility** — For domain messages, PollyWeb now treats the sender's DKIM record as the source of truth for the signature algorithm. Senders derive `Header.Algorithm` from the published DKIM key type (`k=`), and receivers validate that the header agrees with DNS before checking the signature.
 
 **Ed25519 remains the default sender path** — [`KeyPair`](keypair.md) and [`Domain`](domain.md) still generate Ed25519 keys and publish `k=ed25519` DKIM records. `Msg.sign()` also supports RSA private keys and emits `Algorithm=rsa-sha256`.
 
-**External signers are supported** — Use `Msg.sign_with(...)` when the private key lives behind a service such as AWS KMS. PollyWeb still owns canonicalization, hashing, algorithm normalization, and base64 wire encoding; the external signer only needs to return raw signature bytes for the canonical payload.
+**External signers are supported** — Use `Msg.sign_with(...)` when the private key lives behind a service such as AWS KMS. PollyWeb still owns canonicalization, hashing, algorithm normalization, and base64 wire encoding; the external signer only needs to return raw signature bytes for the canonical payload. For domain messages, the selected algorithm must still come from the sender's DKIM DNS record.
 
 **JCS canonicalisation** — Keys are sorted and whitespace is removed before hashing, following RFC 8785. This guarantees the same bytes regardless of how the dict was constructed.
 

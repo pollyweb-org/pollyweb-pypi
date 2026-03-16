@@ -1,6 +1,7 @@
 # `Domain` — PollyWeb Signing Authority
 
 A named sender that signs outbound [`Msg`](msg.md) instances with either a [`KeyPair`](keypair.md) or an external signer such as AWS KMS.
+For domain messages, the signing algorithm is derived from the sender's published DKIM record rather than hardcoded per service.
 
 **See also:** [`DNS`](dns.md), [`KeyPair`](keypair.md), [`Msg`](msg.md)
 
@@ -52,7 +53,7 @@ reply = domain.send(
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
 | `Selector` | `str` | Selector to publish and write into outbound messages. When `KeyPair` is present, [`domain.sign()`](domain/sign.md) may still derive the active selector from [`domain.dns()`](domain/dns.md). |
 | `KeyPair` | [`KeyPair`](keypair.md) | Optional Ed25519 private/public key pair used for signing. |
-| `Signer` | `callable` | Optional external signer receiving canonical bytes and returning raw signature bytes, for example an AWS KMS signer. |
+| `Signer` | `callable` | Optional external signer receiving canonical bytes and returning raw signature bytes, for example an AWS KMS signer. The signer must correspond to the key already published in the sender DKIM record. |
 
 ## Methods
 
