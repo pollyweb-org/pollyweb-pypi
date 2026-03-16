@@ -34,6 +34,18 @@ dns_record = domain.dns()
 # domain.sign(msg) will write that selector into signed.Selector
 ```
 
+If the private key lives outside your process, for example in AWS KMS, you can
+still use [`Domain`](domain.md) with an external signer:
+
+```python
+domain = pw.Domain(
+    Name="sender.dom",
+    Selector="pw1",
+    Signer=kms_signer)
+
+result = domain.send(msg)
+```
+
 ## Sending with direct signing (not recommended)
 
 ```python

@@ -1,5 +1,8 @@
 """PollyWeb Domain — signing authority for outbound messages."""
 from dataclasses import dataclass, replace
+import json
+from typing import Callable, Optional
+import urllib.request
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from pollyweb.dns import fetch_dkim_entries
@@ -10,8 +13,9 @@ from pollyweb.msg import Msg
 @dataclass
 class Domain:
     Name: str
-    KeyPair: KeyPair
     Selector: str
+    KeyPair: Optional[KeyPair] = None
+    Signer: Optional[Callable[[bytes], bytes]] = None
 
     def dns(self):
         """Return ``{selector: txt}`` for publishing this domain's DKIM key.
@@ -25,6 +29,11 @@ class Domain:
           unless the current key already appears in an older entry, which raises
           ``ValueError`` (reusing a revoked key is not allowed).
         """
+        if self.KeyPair is None:
+            if not self.Selector:
+                raise ValueError("Selector is required when Domain has no KeyPair.")
+            return {self.Selector: ""}
+
         entries = fetch_dkim_entries(self.Name, require_dnssec=False)
 
         current_raw = self.KeyPair.PublicKey.public_bytes(Encoding.Raw, PublicFormat.Raw)
@@ -48,9 +57,20 @@ class Domain:
         return {f"pw{last_num + 1}": self.KeyPair.dkim()}
 
     def sign(self, msg: Msg) -> Msg:
-        """Return a new Msg with From/Selector derived from this domain and Ed25519 signature."""
+        """Return a new Msg with From/Selector derived from this domain and a signature."""
         selector = next(iter(self.dns()))
-        return replace(msg, From=self.Name, Selector=selector).sign(self.KeyPair.PrivateKey)
+        prepared = replace(msg, From=self.Name, Selector=selector)
+
+        if self.KeyPair is not None:
+            return prepared.sign(self.KeyPair.PrivateKey)
+
+        if self.Signer is None:
+            raise ValueError("Domain requires either KeyPair or Signer to sign messages.")
+
+        return prepared.sign_with(
+            self.Signer,
+            signature_algorithm="ed25519-sha256",
+        )
 
     def send(self, msg: Msg):
         """Sign *msg*, POST it to the receiver inbox, and return the parsed response.
@@ -58,4 +78,21 @@ class Domain:
         Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
         """
         signed = self.sign(msg)
-        return signed.send()
+        url = f"https://pw.{signed.To}/inbox"
+        body = json.dumps(signed.to_dict(), separators=(",", ":")).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        resp = urllib.request.urlopen(req)
+        raw = resp.read()
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return raw.decode("utf-8", errors="replace")
+        try:
+            return Msg.parse(data)
+        except (TypeError, KeyError, ValueError):
+            return data

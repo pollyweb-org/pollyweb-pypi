@@ -1,6 +1,6 @@
 # `Domain` — PollyWeb Signing Authority
 
-A named sender that holds a [`KeyPair`](keypair.md) and signs outbound [`Msg`](msg.md) instances.
+A named sender that signs outbound [`Msg`](msg.md) instances with either a [`KeyPair`](keypair.md) or an external signer such as AWS KMS.
 
 **See also:** [`DNS`](dns.md), [`KeyPair`](keypair.md), [`Msg`](msg.md)
 
@@ -25,13 +25,34 @@ signed = domain.sign(msg)
 signed.verify(pair.PublicKey)  # True
 ```
 
+External signer example:
+
+```python
+import pollyweb as pw
+
+def kms_signer(canonical: bytes) -> bytes:
+    return kms_client.sign(... )["Signature"]
+
+domain = pw.Domain(
+    Name= "sender.dom",
+    Selector= "pw1",
+    Signer= kms_signer)
+
+reply = domain.send(
+    pw.Msg(
+        To= "receiver.dom",
+        Subject= "Hello@Host",
+        Body= {"text": "hi"}))
+```
+
 ## Fields
 
 | Field | Type | Description |
 |---|---|---|
 | `Name` | `str` | Written to [`Msg.From`](msg.md) on signing. |
-| `KeyPair` | [`KeyPair`](keypair.md) | Holds the Ed25519 private/public key pair used for signing. |
-| `Selector` | `str` | Legacy constructor field. Signing does not trust this value directly; [`domain.sign()`](domain/sign.md) derives the selector from [`domain.dns()`](domain/dns.md). |
+| `Selector` | `str` | Selector to publish and write into outbound messages. When `KeyPair` is present, [`domain.sign()`](domain/sign.md) may still derive the active selector from [`domain.dns()`](domain/dns.md). |
+| `KeyPair` | [`KeyPair`](keypair.md) | Optional Ed25519 private/public key pair used for signing. |
+| `Signer` | `callable` | Optional external signer receiving canonical bytes and returning raw signature bytes, for example an AWS KMS signer. |
 
 ## Methods
 

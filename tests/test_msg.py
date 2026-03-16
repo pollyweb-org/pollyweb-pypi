@@ -621,6 +621,26 @@ class TestDomainSign:
         assert signed.Selector == "pw7"
         assert signed.verify(keypair.PublicKey) is True
 
+    def test_domain_sign_with_external_signer_uses_explicit_selector(self, private_key):
+        signer_calls = []
+
+        def external_signer(canonical: bytes) -> bytes:
+            signer_calls.append(canonical)
+            return private_key.sign(canonical)
+
+        domain = pw.Domain(
+            Name="sender.dom",
+            Selector="pw9",
+            Signer=external_signer)
+
+        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
+        signed = domain.sign(msg)
+
+        assert signed.From == "sender.dom"
+        assert signed.Selector == "pw9"
+        assert signer_calls == [signed.canonical()]
+        assert signed.verify(private_key.public_key()) is True
+
 
 # ---------------------------------------------------------------------------
 # to_dict / from_dict
@@ -1332,12 +1352,12 @@ class TestDomain:
         mock_response.read.return_value = b'{"status": "ok"}'
 
         with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
-            resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
-            with resolver_patch:
-                with patch("urllib.request.urlopen", return_value=mock_response):
-                    result = domain.send(msg)
+            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+                result = domain.send(msg)
 
         assert result == {"status": "ok"}
+        req = urlopen.call_args.args[0]
+        assert req.full_url == "https://pw.recipient.dom/inbox"
 
 
 # ---------------------------------------------------------------------------
