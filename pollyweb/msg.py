@@ -1,6 +1,51 @@
+
 """PollyWeb Message Msg — create, sign, and validate."""
 
 import base64
+import hashlib
+import json
+import re
+import urllib.request
+import uuid
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, timezone
+from typing import Any, Dict, Mapping, Optional, Union
+
+from cryptography.exceptions import InvalidSignature
+import yaml
+
+from pollyweb._crypto import (
+    decode_ascii_envelope,
+    encode_signature,
+    encode_dkim_public_key,
+    canonical_signature_algorithm,
+    load_dkim_public_key,
+    sign_message,
+    signature_algorithm_for_private_key,
+    signature_algorithm_for_public_key,
+    verify_signature,
+)
+from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
+from pollyweb.schema import Schema
+
+SCHEMA = Schema("pollyweb.org/MSG:1.0")
+
+# Struct base class must be after imports so Any is defined
+class Struct:
+    """Generic struct base class with get/require helpers."""
+    def get(self, key: str, default: Any = None) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        if hasattr(self, 'Body') and isinstance(self.Body, dict):
+            return self.Body.get(key, default)
+        return default
+
+    def require(self, key: str) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        if hasattr(self, 'Body') and isinstance(self.Body, dict) and key in self.Body:
+            return self.Body[key]
+        raise KeyError(f"{type(self).__name__} has no field or Body key '{key}'")
 import hashlib
 import json
 import re
@@ -231,7 +276,7 @@ class VerificationDetails:
 
 
 @dataclass(frozen=True, init=False)
-class Msg:
+class Msg(Struct):
     To: str
     Subject: str
     From: str
@@ -244,19 +289,6 @@ class Msg:
     Hash: Optional[str]
     Signature: Optional[str]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Return the value of a Msg field or Body key, or default if not found."""
-        if hasattr(self, key):
-            return getattr(self, key)
-        return self.Body.get(key, default)
-
-    def require(self, key: str) -> Any:
-        """Return the value of a Msg field or Body key, or raise KeyError if not found."""
-        if hasattr(self, key):
-            return getattr(self, key)
-        if key in self.Body:
-            return self.Body[key]
-        raise KeyError(f"Msg has no field or Body key '{key}'")
 
     def get(self, key: str, default: Any = None) -> Any:
         """Return the value of a Msg field or Body key, or default if not found."""
