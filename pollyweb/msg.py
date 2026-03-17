@@ -40,6 +40,8 @@ _DOMAIN_RE = re.compile(
 _Z_TIMESTAMP_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$"
 )
+_POLLYWEB_DOMAIN_ALIAS_SUFFIX = ".dom"
+_POLLYWEB_DOMAIN_CANONICAL_SUFFIX = ".pollyweb.org"
 
 
 def _is_domain_name(value: str) -> bool:
@@ -65,6 +67,18 @@ def _is_z_timestamp(value: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def normalize_domain_name(value: str) -> str:
+    """Normalize supported PollyWeb domain aliases to canonical hostnames."""
+
+    stripped = value.strip()
+    if stripped.endswith(_POLLYWEB_DOMAIN_ALIAS_SUFFIX):
+        return (
+            stripped[: -len(_POLLYWEB_DOMAIN_ALIAS_SUFFIX)]
+            + _POLLYWEB_DOMAIN_CANONICAL_SUFFIX
+        )
+    return stripped
 
 
 def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
@@ -569,7 +583,8 @@ class Msg(Struct):
             self.verify()
         else:
             self.validate_unsigned()
-        url = f"https://pw.{self.To}/inbox"
+        normalized_to = normalize_domain_name(self.To)
+        url = f"https://pw.{normalized_to}/inbox"
         body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
         req = urllib.request.Request(
             url,

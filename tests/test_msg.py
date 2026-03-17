@@ -496,7 +496,7 @@ class TestSend:
 
         assert result == {"status": "ok"}
         req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.receiver.dom/inbox"
+        assert req.full_url == "https://pw.receiver.pollyweb.org/inbox"
         assert req.get_method() == "POST"
         assert req.headers["Content-type"] == "application/json"
         assert json.loads(req.data.decode("utf-8")) == signed.to_dict()
@@ -516,6 +516,27 @@ class TestSend:
             call("pw1._domainkey.pw.sender.dom", "TXT"),
         ]
         urlopen.assert_called_once()
+
+    def test_send_expands_dom_alias_in_inbox_url(self):
+        keypair = pw.KeyPair()
+        aliased = pw.Msg(
+            From="sender.dom",
+            To="receiver.dom",
+            Subject="Hello@Host",
+            Selector="pw1",
+        ).sign(keypair.PrivateKey)
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
+
+        resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(keypair.PublicKey))
+        with resolver_patch:
+            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+                aliased.send()
+
+        req = urlopen.call_args.args[0]
+        assert req.full_url == "https://pw.receiver.pollyweb.org/inbox"
+        assert json.loads(req.data.decode("utf-8"))["Header"]["To"] == "receiver.dom"
 
     def test_send_rejects_invalid_domain_target_signature_before_posting(self, signed):
         tampered = replace(signed, Signature=base64.b64encode(b"bad-signature").decode("ascii"))
@@ -1506,7 +1527,19 @@ class TestDomain:
 
         assert result == {"status": "ok"}
         req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.recipient.dom/inbox"
+        assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
+
+    def test_send_expands_dom_alias_in_inbox_url(self, domain):
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
+
+        with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
+            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+                domain.send(msg)
+
+        req = urlopen.call_args.args[0]
+        assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
 
 
 # ---------------------------------------------------------------------------

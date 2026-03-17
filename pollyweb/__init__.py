@@ -10,6 +10,7 @@ from pollyweb.msg import (
     dkim_public_key_value,
     Msg,
     MsgValidationError,
+    normalize_domain_name,
     VerificationDetails,
 )
 from pollyweb.prompt import Prompt, PromptValidationError

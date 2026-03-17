@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorithm_for_dkim_record
 from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
-from pollyweb.msg import Msg
+from pollyweb.msg import Msg, normalize_domain_name
 
 MANIFEST_URLS = (
     "https://{domain}/manifest",
@@ -155,7 +155,8 @@ class Domain:
         Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
         """
         signed = self.sign(msg)
-        url = f"https://pw.{signed.To}/inbox"
+        normalized_to = normalize_domain_name(signed.To)
+        url = f"https://pw.{normalized_to}/inbox"
         body = json.dumps(signed.to_dict(), separators=(",", ":")).encode("utf-8")
         req = urllib.request.Request(
             url,
