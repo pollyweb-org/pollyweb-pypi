@@ -45,7 +45,7 @@ round_trip = pw.Token.from_dict(payload)
 
 - `canonical()`: returns the canonical JSON bytes used for signing.
 - `sign(private_key)`: returns a signed copy of the token.
-- `verify(public_key=None)`: verifies the signature with an explicit key or by looking up `DKIM` under the issuer domain.
+- `verify(public_key=None)`: verifies that the token is active now, that its content was not tampered with, and that the signature matches the declared `DKIM` selector under the issuer domain when no explicit key is provided.
 - `to_dict()`: returns the wire-format mapping.
 - `from_dict(value)`: builds a token from a mapping.
 - `parse(value)`: accepts an instance, mapping, JSON, YAML, or bytes.

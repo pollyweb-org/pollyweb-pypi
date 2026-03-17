@@ -1,5 +1,8 @@
 """Tests for pollyweb.token."""
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
 import pytest
 
 import pollyweb as pw
@@ -41,6 +44,28 @@ class TestToken:
 
         assert signed.Signature
         assert signed.verify(keypair.PublicKey) is True
+
+    def test_verify_uses_declared_dkim_when_no_key_is_passed(self):
+        """Token.verify should resolve and use the declared DKIM selector."""
+
+        keypair = pw.KeyPair()
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {
+                "Seat": "A-12",
+            },
+            DKIM = "pw7",
+        ).sign(keypair.PrivateKey)
+
+        with patch(
+            "pollyweb.token._resolve_dkim_public_key",
+            return_value = (keypair.PublicKey, "ed25519"),
+        ) as resolve:
+            assert token.verify() is True
+
+        resolve.assert_called_once_with("issuer.example.com", "pw7")
 
     def test_token_parse_yaml(self):
         """Token.parse should accept YAML input."""
@@ -95,3 +120,83 @@ DKIM: pw1
             match = "Expires must be after Starts",
         ):
             token.verify(keypair.PublicKey)
+
+    def test_verify_rejects_token_that_is_not_active_yet(self):
+        """Verification should fail before the token start time."""
+
+        keypair = pw.KeyPair()
+        starts = (datetime.now(timezone.utc) + timedelta(minutes = 5)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {},
+            Starts = starts,
+            DKIM = "pw1",
+        ).sign(keypair.PrivateKey)
+
+        with pytest.raises(
+            pw.TokenValidationError,
+            match = "Token is not active yet",
+        ):
+            token.verify(keypair.PublicKey)
+
+    def test_verify_rejects_expired_token(self):
+        """Verification should fail after the token expiry time."""
+
+        keypair = pw.KeyPair()
+        issued = (datetime.now(timezone.utc) - timedelta(days = 2)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        starts = (datetime.now(timezone.utc) - timedelta(days = 1)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        expires = (datetime.now(timezone.utc) - timedelta(minutes = 1)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {},
+            Issued = issued,
+            Starts = starts,
+            Expires = expires,
+            DKIM = "pw1",
+        ).sign(keypair.PrivateKey)
+
+        with pytest.raises(
+            pw.TokenValidationError,
+            match = "Token has expired",
+        ):
+            token.verify(keypair.PublicKey)
+
+    def test_verify_rejects_tampered_token(self):
+        """Verification should fail when signed content changes."""
+
+        keypair = pw.KeyPair()
+        signed = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {
+                "Seat": "A-12",
+            },
+            DKIM = "pw1",
+        ).sign(keypair.PrivateKey)
+        tampered = pw.Token.from_dict(
+            {
+                **signed.to_dict(),
+                "Context": {
+                    "Seat": "B-99",
+                },
+            }
+        )
+
+        with pytest.raises(
+            pw.TokenValidationError,
+            match = "Invalid signature",
+        ):
+            tampered.verify(keypair.PublicKey)

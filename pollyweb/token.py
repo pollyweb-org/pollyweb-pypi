@@ -50,6 +50,12 @@ def _normalize_wire_value(value: Any) -> Any:
     return value
 
 
+def _parse_z_timestamp(value: str) -> datetime:
+    """Parse a PollyWeb Z timestamp into a UTC datetime."""
+
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 class TokenValidationError(Exception):
     """Raised when token validation fails."""
 
@@ -173,12 +179,24 @@ class Token:
         self,
         public_key: Optional[object] = None
     ) -> bool:
-        """Verify the token signature using *public_key* or DNS."""
+        """Verify the token is active, signed by the declared DKIM, and untampered."""
 
         if self.Signature is None:
             raise TokenValidationError("Missing Signature")
         if self.Expires and self.Expires < self.Starts:
             raise TokenValidationError("Expires must be after Starts")
+
+        now = datetime.now(timezone.utc)
+        starts = _parse_z_timestamp(self.Starts)
+
+        if now < starts:
+            raise TokenValidationError("Token is not active yet")
+
+        if self.Expires:
+            expires = _parse_z_timestamp(self.Expires)
+
+            if now > expires:
+                raise TokenValidationError("Token has expired")
 
         if public_key is None:
             if not self.DKIM:
