@@ -588,9 +588,11 @@ class Msg(Struct):
         """
         if _is_domain_name(self._effective_from()):
             self.verify()
-        elif self._effective_from() == "Anonymous" and self.Hash is None and self.Signature is None:
+        elif self.Hash is None and self.Signature is None:
             self._validate_schema()
-            self._validate_required_fields(require_selector=False, require_from=False)
+            self._validate_required_fields(
+                require_selector = False,
+                require_from = self._effective_from() != "Anonymous")
         else:
             self.validate_unsigned()
         normalized_to = normalize_domain_name(self.To)

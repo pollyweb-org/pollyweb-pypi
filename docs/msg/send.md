@@ -8,8 +8,9 @@ response = signed.send()
 
 `msg.To` must be a domain string. `msg.send()` calls [`msg.verify()`](verify.md) before sending, so the message must have a valid signature and resolvable sender key unless you verified it earlier with an explicit public key.
 
-For non-domain senders, `msg.send()` has two paths:
+For non-domain senders, `msg.send()` has three paths:
 - `From="Anonymous"` with no `Hash` or `Signature` sends as an unsigned anonymous message.
+- A UUID `From` with no `Hash` or `Signature` sends as an unsigned pseudonymous message.
 - `From="Anonymous"` or a UUID with `Hash` and optional `Signature` validates through [`msg.validate_unsigned()`](validate_unsigned.md) because DNS lookup is not available.
 
 The request body is the wire-format JSON produced by [`msg.to_dict()`](to_dict.md).
