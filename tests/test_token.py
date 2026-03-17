@@ -67,6 +67,70 @@ class TestToken:
 
         resolve.assert_called_once_with("issuer.example.com", "pw7")
 
+    def test_verify_requires_signature(self):
+        """Token.verify should fail when the token is unsigned."""
+
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {},
+            DKIM = "pw1",
+        )
+
+        with pytest.raises(
+            pw.TokenValidationError,
+            match = "Missing Signature",
+        ):
+            token.verify()
+
+    def test_verify_requires_dkim_for_dns_lookup(self):
+        """Token.verify should require DKIM when resolving the signer from DNS."""
+
+        keypair = pw.KeyPair()
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {},
+            Algorithm = "ed25519-sha256",
+            Signature = "ZmFrZQ==",
+        )
+
+        with pytest.raises(
+            pw.TokenValidationError,
+            match = "Missing DKIM",
+        ):
+            token.verify()
+
+    def test_verify_rejects_algorithm_mismatch_with_dkim_key(self):
+        """Token.verify should reject tokens whose declared algorithm mismatches DNS."""
+
+        keypair = pw.KeyPair()
+        token = pw.Token(
+            Token = "ticket-123",
+            Issuer = "issuer.example.com",
+            Schema = "tickets.example.com/ENTRY:1.0",
+            Context = {},
+            DKIM = "pw1",
+        ).sign(keypair.PrivateKey)
+        mismatched = pw.Token.from_dict(
+            {
+                **token.to_dict(),
+                "Algorithm": "rsa-sha256",
+            }
+        )
+
+        with patch(
+            "pollyweb.token._resolve_dkim_public_key",
+            return_value = (keypair.PublicKey, "ed25519"),
+        ):
+            with pytest.raises(
+                pw.TokenValidationError,
+                match = "does not match DKIM algorithm ed25519-sha256",
+            ):
+                mismatched.verify()
+
     def test_token_parse_yaml(self):
         """Token.parse should accept YAML input."""
 
