@@ -70,3 +70,6 @@ Enable the pre-push hook once per clone:
 ```bash
 git config core.hooksPath .githooks
 ```
+
+## Learnings
+- `Token` wrappers in this package can reuse the existing message crypto helpers directly; the main adaptation is mapping the spec's `DKIM` field to the selector used for DNS-based signature verification.

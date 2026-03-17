@@ -15,4 +15,5 @@ from pollyweb.msg import (
 from pollyweb._crypto import decode_ascii_envelope, load_public_key
 from pollyweb.schema import Schema
 from pollyweb.struct import Struct
+from pollyweb.token import Token, TokenValidationError
 from pollyweb.wallet import Wallet
