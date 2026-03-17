@@ -63,6 +63,11 @@ Whenever you add or change a public method or field on any class, update the cor
 - Maintain `RELEASES.md` in the same response whenever you add a user-visible feature, change release contents, or cut a new version.
 - Keep each version entry focused on the features and notable behavior shipped in that release.
 
+## Publishing rule
+- Publish this package by pushing to GitHub, not by uploading from the terminal.
+- The GitHub Actions workflow at `.github/workflows/publish.yml` is the source of truth for PyPI publishing in this repo.
+- Because versioning is driven by `setuptools-scm`, verify the git state and tags before pushing instead of editing a version string by hand.
+
 ## Running tests
 ```bash
 pytest
