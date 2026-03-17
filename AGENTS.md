@@ -10,6 +10,7 @@ Python library (`import pollyweb`) implementing the PollyWeb protocol: a trust f
 ## Project files
 - `pyproject.toml` — package metadata and build config
 - `setup.py` — setuptools shim
+- `RELEASES.md` — version-by-version release log and feature summary
 - `LICENSE` — Apache 2.0
 - `.githooks/pre-push` — runs pytest + pip-audit before push
 - `docs/msg.md` — developer documentation for the `Msg` class
@@ -57,6 +58,11 @@ msg = pw.Msg.from_dict(d)        # round-trip
 ## Documentation rule
 Whenever you add or change a public method or field on any class, update the corresponding `docs/*.md` file in the same response — no need to be reminded.
 
+## Release log rule
+- Read `RELEASES.md` before making versioned release or feature-summary changes.
+- Maintain `RELEASES.md` in the same response whenever you add a user-visible feature, change release contents, or cut a new version.
+- Keep each version entry focused on the features and notable behavior shipped in that release.
+
 ## Running tests
 ```bash
 pytest
@@ -72,6 +78,7 @@ git config core.hooksPath .githooks
 ```
 
 ## Learnings
+- Keep `RELEASES.md` as the repo's human-readable version history, and update it alongside any user-visible feature or release change so the shipped feature set stays easy to audit.
 - `Token` wrappers in this package can reuse the existing message crypto helpers directly; the main adaptation is mapping the spec's `DKIM` field to the selector used for DNS-based signature verification.
 - `Token.verify()` should enforce three independent checks together: the token must be active for the current UTC time, the declared `DKIM` selector must resolve to a compatible signing key, and canonical signature verification must fail if any signed token field was tampered with.
 - High-value `Token` tests cover both success and failure paths: explicit-key verification, DNS-based DKIM resolution, missing signature/DKIM, not-yet-active and expired windows, DKIM algorithm mismatches, and tampered payloads.
