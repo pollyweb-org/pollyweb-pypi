@@ -123,6 +123,23 @@ def signed(msg, private_key):
 # ---------------------------------------------------------------------------
 
 class TestMsg:
+    def test_constructor_parses_wire_mapping(self, msg):
+        # A single wire-format mapping should construct the same normalized Msg.
+        assert pw.Msg(msg.to_dict()) == msg
+
+    def test_constructor_parses_api_gateway_event(self, msg):
+        # API Gateway envelopes should be accepted directly by the constructor.
+        event = {
+            "resource": "/inbox",
+            "path": "/inbox",
+            "httpMethod": "POST",
+            "body": json.dumps(msg.to_dict()),
+            "isBase64Encoded": False,
+        }
+
+        assert pw.Msg(event) == msg
+        assert pw.Msg(event).Body == msg.Body
+
     def test_get_and_require(self, msg):
         # Field access should still resolve top-level headers first.
         assert msg.get("From") == "sender.dom"

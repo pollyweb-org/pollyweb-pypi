@@ -249,8 +249,8 @@ class Msg(Struct):
 
     def __init__(
         self,
-        To: str,
-        Subject: str,
+        To: Union[str, "Msg", Mapping[str, Any], bytes],
+        Subject: Optional[str] = None,
         *,
         From: str = "",
         Selector: str = "",
@@ -263,6 +263,13 @@ class Msg(Struct):
         Signature: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
+        """Initialize a Msg from fields or parse a single raw/enveloped input."""
+
+        if Subject is None and not isinstance(To, str):
+            parsed = type(self).parse(To)
+            self._copy_from_msg(parsed)
+            return
+
         # Merge any extra keyword arguments into Body as convenience shorthand.
         if Body is None:
             merged_body: Any = {}
@@ -294,6 +301,24 @@ class Msg(Struct):
         object.__setattr__(self, "Hash", Hash)
         object.__setattr__(self, "Signature", Signature)
         self.__post_init__()
+
+    def _copy_from_msg(
+        self,
+        other: "Msg"
+    ) -> None:
+        """Copy all normalized fields from another Msg instance into this one."""
+
+        object.__setattr__(self, "To", other.To)
+        object.__setattr__(self, "Subject", other.Subject)
+        object.__setattr__(self, "From", other.From)
+        object.__setattr__(self, "Selector", other.Selector)
+        object.__setattr__(self, "Algorithm", other.Algorithm)
+        object.__setattr__(self, "Body", other.Body)
+        object.__setattr__(self, "Correlation", other.Correlation)
+        object.__setattr__(self, "Timestamp", other.Timestamp)
+        object.__setattr__(self, "Schema", other.Schema)
+        object.__setattr__(self, "Hash", other.Hash)
+        object.__setattr__(self, "Signature", other.Signature)
 
     def __post_init__(self) -> None:
         if not _is_domain_name(self.To):

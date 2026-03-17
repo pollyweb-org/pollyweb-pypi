@@ -15,6 +15,9 @@ Parses a [`Msg`](../msg.md) from any of the supported input forms:
 
 ```python
 received = pw.Msg.parse(raw_message)
+
+# Equivalent shortcut when you prefer constructor style
+received = pw.Msg(raw_message)
 ```
 
 Mappings are normalized into JSON-wire-compatible scalar values before being passed to [`Msg.from_dict()`](from_dict.md). If the mapping looks like an AWS EventBridge, SNS, SQS, API Gateway, or Kinesis envelope, `parse()` automatically unwraps `detail`, `Message`, `Records[*].body`, `body`, or `Records[*].kinesis.data` and parses the embedded PollyWeb message. API Gateway payloads with `isBase64Encoded: true` and Kinesis record payloads are base64-decoded before parsing.
@@ -24,3 +27,5 @@ If the parsed wire message omits `Header.From` or sets it to an empty string, th
 The parsed message must still satisfy normal `Msg` construction rules, including `Header.To` being a syntactically valid domain string, `Header.Subject` being a string, `Header.Schema` being a valid PollyWeb schema code string, `Header.Correlation` being a UUID string, and `Header.Timestamp` being a UTC timestamp ending in `Z`. Schema shorthand such as `.MSG` is accepted and normalized. Otherwise `parse()` raises `MsgValidationError`.
 
 Raises `TypeError` if the parsed value is not a supported message representation.
+
+If you want constructor syntax in handler code, `Msg(value)` delegates to the same parsing logic whenever `value` is the only positional argument and `Subject` is omitted.

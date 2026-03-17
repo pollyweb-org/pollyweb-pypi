@@ -77,6 +77,9 @@ import pollyweb as pw
 # raw_message is the wire-format JSON or YAML received from the remote domain
 received = pw.Msg.parse(raw_message)
 
+# Shortcut: the constructor can also parse a single incoming value
+received = pw.Msg(raw_message)
+
 # Recommended: let PollyWeb resolve the sender's DKIM key from DNS
 # by validating pw.{received.From} first and then using
 # received.From + received.Selector.
@@ -138,6 +141,8 @@ received.verify(public_key)
 | `Signature` | `str \| None` | — | `None` | Base64-encoded signature bytes. Set by `sign()`. |
 
 Extra keyword arguments are merged into `Body` at construction time, so `Msg(To="a.com", Subject="X@H", text="hi")` is equivalent to `Msg(To="a.com", Subject="X@H", Body={"text": "hi"})`. When both `Body` and extra kwargs are given, the kwargs are merged on top of `Body`. This shorthand is available only when `Body` is a mapping, not when it is a string.
+
+When `Msg()` is called with a single positional value and no `Subject`, it treats that value as an incoming message source and parses it using the same rules as [`Msg.parse()`](msg/parse.md). This means `Msg(event).Body` works for wire-format mappings, JSON/YAML text, bytes, and supported AWS envelopes such as API Gateway events.
 
 `Msg()` rejects any `To` value that is not a syntactically valid domain string, any `From` value that is not `""`, `Anonymous`, a domain string, or a UUID, any `Subject` value that is not a string, any `Schema` value that is not a valid [`Schema`](schema.md) code, any `Correlation` value that is not a UUID string, and any `Timestamp` value that is not a UTC timestamp ending in `Z`. String schema inputs are normalized to canonical form, so `.MSG` becomes `pollyweb.org/MSG:1.0`. `sign()`, `verify()`, and `validate_unsigned()` require `From`, `To`, `Subject`, `Correlation`, and `Timestamp` to be non-empty. `Selector` is required only when signature validation needs DNS to resolve the sender key.
 
@@ -232,5 +237,7 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 **CamelCase fields** — Field names on `Msg` match the wire-format names (e.g. `From`, `To`, `Subject`) for consistency between the Python API and the JSON representation.
 
 **Extra kwargs are merged into `Body`** — Any keyword argument passed to `Msg()` that is not a named field is merged into `Body`. This lets callers write `Msg(To=..., Subject=..., text="hi")` instead of the more verbose `Msg(To=..., Subject=..., Body={"text": "hi"})`. If `Body` is also supplied, the extra kwargs are merged on top of it.
+
+**Single-argument constructor parses incoming envelopes** — `Msg(value)` is equivalent to `Msg.parse(value)` when `value` is the only positional argument and `Subject` is omitted. This is useful in Lambda handlers where incoming AWS events can be normalized with `msg = pw.Msg(event)` and then consumed via `msg.Body`.
 
 **`From`, `Selector`, and `Algorithm` are optional at construction** — `From` and `Selector` default to `""`, and `Algorithm` also defaults to `""`, so a `Msg` can be built as a draft before the sender or signature method is known. `From` may also be set explicitly to `Anonymous`, a domain string, or a UUID. Before a message is signed or validated, `From` must be populated; [`domain.sign()`](domain/sign.md) fills `From`, derives `Selector`, and signs with the domain's Ed25519 key. `verify()` requires `Selector` only when it must resolve the sender key from DNS.
