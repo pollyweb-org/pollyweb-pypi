@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Changed anonymous `Wallet.send()` calls to send unsigned messages by default, while UUID-backed wallets still sign.
 - Clarified send and domain-normalization documentation for the current development head.
 - Normalized `.dom` aliases only at inbox-delivery time so signed `Header.To` values remain unchanged.
 - Let `Msg(value)` delegate to `Msg.parse(value)` for single non-string inputs.

@@ -1542,6 +1542,56 @@ class TestDomain:
         assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
 
 
+class TestWallet:
+    def test_anonymous_send_posts_unsigned_message(self):
+        wallet = pw.Wallet(ID = "Anonymous")
+        msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
+
+        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+            result = wallet.send(msg)
+
+        assert result == {"status": "ok"}
+
+        request = urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+
+        assert payload["Header"]["From"] == "Anonymous"
+        assert "Hash" not in payload
+        assert "Signature" not in payload
+
+    def test_pseudonymous_send_remains_signed(self):
+        wallet = pw.Wallet(
+            ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+        msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
+
+        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+            result = wallet.send(msg)
+
+        assert result == {"status": "ok"}
+
+        request = urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+
+        assert payload["Header"]["From"] == wallet.ID
+        assert payload["Hash"]
+        assert payload["Signature"]
+
+    def test_unsigned_anonymous_msg_can_send_directly(self):
+        msg = pw.Msg(
+            From = "Anonymous",
+            To = "recipient.dom",
+            Subject = "Hello@Host")
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"status": "ok"}'
+
+        with patch("urllib.request.urlopen", return_value = mock_response):
+            assert msg.send() == {"status": "ok"}
+
+
 # ---------------------------------------------------------------------------
 # Domain.dns (REMOVED - mocked tests gave false confidence)
 # Real DNS integration tests are in tests/test_dns.py

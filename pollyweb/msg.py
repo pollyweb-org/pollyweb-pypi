@@ -574,8 +574,10 @@ class Msg(Struct):
         """Validate this message, POST it to the receiver inbox, and return the parsed response.
 
         When ``From`` is a domain name, signature is verified via DKIM DNS.
-        When ``From`` is ``"Anonymous"`` or a UUID, only structure and hash are
-        validated (no DNS lookup possible for non-domain senders).
+        When ``From`` is ``"Anonymous"`` and the message is unsigned, only basic
+        envelope structure is validated before sending. When ``From`` is
+        ``"Anonymous"`` or a UUID and the message already carries ``Hash`` or
+        ``Signature``, structure and hash are validated without DNS lookup.
 
         The response body is parsed automatically:
         - Returns a ``Msg`` if the server replies with a PollyWeb message.
@@ -586,6 +588,9 @@ class Msg(Struct):
         """
         if _is_domain_name(self._effective_from()):
             self.verify()
+        elif self._effective_from() == "Anonymous" and self.Hash is None and self.Signature is None:
+            self._validate_schema()
+            self._validate_required_fields(require_selector=False, require_from=False)
         else:
             self.validate_unsigned()
         normalized_to = normalize_domain_name(self.To)

@@ -39,5 +39,15 @@ class Wallet:
 
         Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
         """
+        if self.ID == "Anonymous":
+            anonymous = replace(
+                msg,
+                From = self.ID,
+                Selector = "",
+                Algorithm = "",
+                Hash = None,
+                Signature = None)
+            return anonymous.send()
+
         signed = self.sign(msg)
         return signed.send()
