@@ -745,6 +745,7 @@ class TestDomainSign:
 
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw7"
+        assert signed.Algorithm == ""
         assert signed.verify(keypair.PublicKey) is True
 
     def test_domain_sign_with_external_signer_uses_explicit_selector(self, private_key):
@@ -770,7 +771,7 @@ class TestDomainSign:
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw9"
         assert signer_calls == [signed.canonical()]
-        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Algorithm == ""
         assert signed.verify(private_key.public_key()) is True
 
     def test_domain_sign_with_external_signer_derives_algorithm_from_dkim_record(self, private_key):
@@ -795,7 +796,7 @@ class TestDomainSign:
         ):
             signed = domain.sign(msg)
 
-        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Algorithm == ""
         assert signer_calls == [signed.canonical()]
 
     def test_domain_sign_raises_when_external_signer_selector_has_no_dkim_record(self, private_key):
@@ -1504,6 +1505,13 @@ class TestDomain:
         signed = domain.sign(msg)
         assert signed.verify(public_key) is True
 
+    def test_sign_omits_algorithm_from_wire_payload(self, domain):
+        msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
+        signed = domain.sign(msg)
+
+        assert signed.Algorithm == ""
+        assert "Algorithm" not in signed.to_dict()["Header"]
+
     def test_sign_preserves_to_and_subject(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
@@ -1527,7 +1535,10 @@ class TestDomain:
 
         assert result == {"status": "ok"}
         req = urlopen.call_args.args[0]
+        payload = json.loads(req.data.decode("utf-8"))
+
         assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
+        assert "Algorithm" not in payload["Header"]
 
     def test_send_expands_dom_alias_in_inbox_url(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")

@@ -462,6 +462,33 @@ class Msg(Struct):
             raise MsgValidationError(str(exc)) from exc
         return msg.with_signature(signature)
 
+    def sign_detached(
+        self,
+        signer,
+        *,
+        signature_algorithm: str,
+    ) -> "Msg":
+        """Sign this msg without serializing ``Algorithm`` into the result."""
+
+        self._validate_required_fields(require_selector=False, require_from=True)
+        algorithm = canonical_signature_algorithm(signature_algorithm)
+
+        # Sign the canonical payload exactly as it will be serialized on the wire,
+        # while still using the caller-selected algorithm for the crypto operation.
+        canonical = self.canonical()
+
+        try:
+            signature = signer(canonical, algorithm)
+        except (TypeError, ValueError) as exc:
+            raise MsgValidationError(str(exc)) from exc
+
+        hash_hex = hashlib.sha256(canonical).hexdigest()
+        return replace(
+            self,
+            Hash = hash_hex,
+            Signature = encode_signature(signature),
+        )
+
     def _validate_schema(self) -> None:
         if self.Schema != SCHEMA:
             raise MsgValidationError(f"Unsupported schema: {self.Schema}")

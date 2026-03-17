@@ -10,6 +10,7 @@ from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorit
 from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import Msg, normalize_domain_name
+from pollyweb._crypto import sign_message
 
 MANIFEST_URLS = (
     "https://{domain}/manifest",
@@ -129,7 +130,14 @@ class Domain:
 
         if self.KeyPair is not None:
             algorithm = self._signature_algorithm(dkim_record)
-            return replace(prepared, Algorithm = algorithm).sign(self.KeyPair.PrivateKey)
+            return prepared.sign_detached(
+                lambda canonical, selected_algorithm: sign_message(
+                    self.KeyPair.PrivateKey,
+                    canonical,
+                    signature_algorithm = selected_algorithm,
+                )[0],
+                signature_algorithm = algorithm,
+            )
 
         if self.Signer is None:
             raise ValueError("Domain requires either KeyPair or Signer to sign messages.")
@@ -144,8 +152,8 @@ class Domain:
 
         algorithm = self._signature_algorithm(dkim_record)
 
-        return prepared.sign_with(
-            self.Signer,
+        return prepared.sign_detached(
+            lambda canonical, selected_algorithm: self.Signer(canonical),
             signature_algorithm = algorithm,
         )
 
