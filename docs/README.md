@@ -8,6 +8,7 @@ Reference documentation for the `pollyweb` Python package.
 - [`DNS`](dns.md) — DNS inspection overview and method links
 - [`KeyPair`](keypair.md) — key material overview, property docs, and method links
 - [`Msg`](msg.md) — message envelope overview, fields, and method links
+- [`Prompt`](prompt.md) — chat prompt wrapper and `Prompted@Host` message helpers
 - [`Schema`](schema.md) — validated PollyWeb schema code value type
 
 ## Method reference
@@ -55,6 +56,26 @@ msg = pw.Msg(
 
 signed = domain.sign(msg)
 signed.verify(pair.PublicKey)
+```
+
+Prompt helpers sit one layer above `Msg` when you want a typed chat payload:
+
+```python
+import pollyweb as pw
+
+prompt = pw.Prompt(
+    Text = "What size pizza would you like?",
+    Options = ["small", "medium", "large"],
+    Default = "medium",
+    Input = "select",
+)
+
+msg = prompt.to_msg(
+    To = "shop.example.com",
+)
+
+same = pw.Prompt.from_msg(msg)
+assert same.Text == prompt.Text
 ```
 
 

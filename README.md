@@ -10,8 +10,29 @@ Core APIs:
 - `pw.Domain` signs outbound messages and determines the DNS record to publish.
 - `pw.DNS` checks whether a domain's PollyWeb DKIM DNS records are compliant.
 - `pw.Msg` creates, signs, serializes, and validates messages.
+- `pw.Prompt` wraps `Prompted@Host` chat prompts as typed message bodies.
 
 Package reference docs: [`docs/README.md`](docs/README.md)
+
+## Prompt Usage
+
+```python
+import pollyweb as pw
+
+prompt = pw.Prompt(
+    Text = "What size pizza would you like?",
+    Options = ["small", "medium", "large"],
+    Default = "medium",
+    Input = "select",
+)
+
+msg = prompt.to_msg(
+    To = "shop.example.com",
+)
+
+received = pw.Prompt.from_msg(msg)
+assert received.Options == ["small", "medium", "large"]
+```
 
 ## Contributing
 
