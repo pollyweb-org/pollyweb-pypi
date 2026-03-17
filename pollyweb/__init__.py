@@ -12,6 +12,7 @@ from pollyweb.msg import (
     MsgValidationError,
     VerificationDetails,
 )
+from pollyweb.prompt import Prompt, PromptValidationError
 from pollyweb._crypto import decode_ascii_envelope, load_public_key
 from pollyweb.schema import Schema
 from pollyweb.struct import Struct
