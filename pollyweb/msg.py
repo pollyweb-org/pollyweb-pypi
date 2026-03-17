@@ -70,7 +70,10 @@ def _is_z_timestamp(value: str) -> bool:
 
 
 def normalize_domain_name(value: str) -> str:
-    """Normalize supported PollyWeb domain aliases to canonical hostnames."""
+    """
+    Normalize supported PollyWeb domain aliases to canonical hostnames.
+    Don't call this directly - instead, use Domain.send() or Wallet.send()
+    """
 
     stripped = value.strip()
     if stripped.endswith(_POLLYWEB_DOMAIN_ALIAS_SUFFIX):
@@ -578,6 +581,8 @@ class Msg(Struct):
         - Returns a ``Msg`` if the server replies with a PollyWeb message.
         - Returns a ``dict`` if the response is JSON but not a valid ``Msg``.
         - Returns a ``str`` if the response body is not valid JSON.
+
+        Don't call this directly - instead, use Domain.send() or Wallet.send()
         """
         if _is_domain_name(self._effective_from()):
             self.verify()
