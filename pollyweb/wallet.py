@@ -2,6 +2,7 @@
 import uuid
 from dataclasses import dataclass, field, replace
 
+from pollyweb._crypto import sign_message
 from pollyweb.keypair import KeyPair
 from pollyweb.msg import Msg
 
@@ -32,7 +33,19 @@ class Wallet:
 
     def sign(self, msg: Msg) -> Msg:
         """Return a new Msg with From set to this wallet's ID and an Ed25519 signature."""
-        return replace(msg, From=self.ID).sign(self.KeyPair.PrivateKey)
+        prepared = replace(
+            msg,
+            From = self.ID,
+            Selector = "",
+            Algorithm = "")
+
+        return prepared.sign_with(
+            lambda canonical: sign_message(
+                self.KeyPair.PrivateKey,
+                canonical,
+                signature_algorithm = "ed25519-sha256",
+            )[0],
+            signature_algorithm = "ed25519-sha256")
 
     def send(self, msg: Msg):
         """Sign *msg*, POST it to the receiver inbox, and return the parsed response.

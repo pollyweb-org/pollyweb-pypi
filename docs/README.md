@@ -32,7 +32,6 @@ Reference documentation for the `pollyweb` Python package.
 ### `Msg`
 
 - [`msg.canonical()`](msg/canonical.md)
-- [`msg.sign()`](msg/sign.md)
 - [`msg.send()`](msg/send.md)
 - [`msg.verify()`](msg/verify.md)
 - [`msg.to_dict()`](msg/to_dict.md)

@@ -1,5 +1,5 @@
 
-"""PollyWeb Message Msg — create, sign, and validate."""
+"""PollyWeb Message Msg — create, validate, and transport."""
 
 import base64
 import hashlib
@@ -15,13 +15,11 @@ from cryptography.exceptions import InvalidSignature
 import yaml
 
 from pollyweb._crypto import (
-    decode_ascii_envelope,
-    encode_signature,
-    encode_dkim_public_key,
     canonical_signature_algorithm,
+    decode_ascii_envelope,
+    encode_dkim_public_key,
+    encode_signature,
     load_dkim_public_key,
-    sign_message,
-    signature_algorithm_for_private_key,
     signature_algorithm_for_public_key,
     verify_signature,
 )
@@ -411,33 +409,6 @@ class Msg(Struct):
         return json.dumps(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         ).encode("utf-8")
-
-    def sign(self, private_key: object) -> "Msg":
-        """Compute hash and sign this msg. Returns a new signed Msg."""
-        self._validate_required_fields(require_selector=False, require_from=True)
-        try:
-            algorithm = (
-                canonical_signature_algorithm(self.Algorithm)
-                if self.Algorithm
-                else signature_algorithm_for_private_key(private_key)
-            )
-        except (TypeError, ValueError) as exc:
-            raise MsgValidationError(str(exc)) from exc
-        wire_algorithm = "" if _omit_algorithm_for_domain_sender(self.From) else algorithm
-        msg = replace(self, Algorithm=wire_algorithm)
-        canonical = msg.canonical()
-        hash_hex = hashlib.sha256(canonical).hexdigest()
-        try:
-            signature_bytes, _ = sign_message(
-                private_key,
-                canonical,
-                signature_algorithm=algorithm,
-            )
-        except (TypeError, ValueError) as exc:
-            raise MsgValidationError(str(exc)) from exc
-        return msg.with_signature(
-            signature_bytes,
-            signature_algorithm = algorithm)
 
     def with_signature(
         self,

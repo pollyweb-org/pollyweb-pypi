@@ -34,7 +34,7 @@ signed = domain.sign(msg)        # sets From, DKIM, Hash, Signature → new Msg
 
 # Direct signing (when you already have From/DKIM on the Msg)
 msg = pw.Msg(From="sender.dom", To="receiver.dom", Subject="Hello@Host", DKIM="pw1", Body={...})
-signed = msg.sign(private_key)   # Ed25519PrivateKey → new Msg
+signed = wallet.sign(msg)        # Wallets sign non-domain messages → new Msg
 
 # Validate
 signed.verify(public_key)        # Ed25519PublicKey → True or raises pw.MsgValidationError
@@ -94,3 +94,4 @@ git config core.hooksPath .githooks
 - `Msg(value)` now delegates to `Msg.parse(value)` when called with a single non-string positional input and no `Subject`, so handler code can normalize raw wire mappings and supported AWS envelopes directly through the constructor while preserving the usual field validation rules.
 - Reusable PollyWeb domain alias handling should live in `pollyweb.msg.normalize_domain_name()`, and send paths should normalize `.dom` targets only when building the inbox URL so the signed `Header.To` value remains unchanged.
 - Redirecting setuptools' local build tree away from the default `build/` folder can be done repo-wide with a tiny `setup.cfg` section: `[build] build-base = .build`.
+- `Msg` should stay as a transport and verification envelope, while signing entry points live on higher-level authorities such as `Domain` and `Wallet`; removing direct `Msg.sign()` usage avoids bypassing sender-specific signing rules.

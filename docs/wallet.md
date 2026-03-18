@@ -56,6 +56,7 @@ pw.Wallet(KeyPair=pw.KeyPair(), ID="<uuid4>")
 
 Returns a new `Msg` with `From` set to `wallet.ID`, signed with the wallet's private key.
 The original `msg` is unchanged (frozen dataclass).
+Wallet signing is implemented on `Wallet` itself rather than via `Msg.sign()`.
 
 ### `wallet.send(msg) → Msg | dict | str`
 
