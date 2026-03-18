@@ -83,6 +83,7 @@ git config core.hooksPath .githooks
 ```
 
 ## Learnings
+- For DNSSEC-backed DKIM verification in this package, do not trust only the local resolver's `AD` flag; if the system resolver returns unsigned answers for a signed record, retry against explicit validating resolvers before rejecting the domain.
 - Keep `RELEASES.md` as the repo's human-readable version history, and update it alongside any user-visible feature or release change so the shipped feature set stays easy to audit.
 - `Token` wrappers in this package can reuse the existing message crypto helpers directly; the main adaptation is mapping the spec's `DKIM` field to the selector used for DNS-based signature verification.
 - `Token.verify()` should enforce three independent checks together: the token must be active for the current UTC time, the declared `DKIM` selector must resolve to a compatible signing key, and canonical signature verification must fail if any signed token field was tampered with.

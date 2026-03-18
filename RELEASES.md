@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Made DNSSEC-backed DKIM verification fall back to trusted validating resolvers when the local resolver returns unsigned answers without the `AD` flag.
 - Stopped serializing `Header.Algorithm` on domain-signed messages; receivers now infer the algorithm from DKIM for the selected selector while still rejecting mismatched explicit headers.
 - Changed anonymous `Wallet.send()` calls to send unsigned messages by default, while UUID-backed wallets still sign.
 - Allowed direct `Msg.send()` calls with a UUID `From` and no `Hash` or `Signature`, so pseudonymous wallets can also send explicitly unsigned messages when callers strip signatures before transport.

@@ -25,7 +25,7 @@ from pollyweb._crypto import (
     signature_algorithm_for_public_key,
     verify_signature,
 )
-from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch
+from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch, _resolve_with_dnssec
 from pollyweb._crypto import signature_algorithm_for_dkim_key_type
 from pollyweb.schema import Schema
 from pollyweb.struct import Struct
@@ -93,31 +93,23 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
 
     Raises ``MsgValidationError`` if:
     - the DNS lookup fails,
-    - DNSSEC is not enabled / the AD flag is not set on the response, or
+    - no trusted resolver can return a DNSSEC-validated answer, or
     - no supported public key is found in the TXT records.
     """
-    import dns.flags
-    import dns.resolver
-
     branch = pollyweb_domain(domain)
     dns_name = dkim_dns_name(domain, selector)
     try:
-        resolver = dns.resolver.Resolver()
-        resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
         try:
-            validate_pollyweb_branch(resolver, domain)
+            validate_pollyweb_branch(domain)
         except ValueError as exc:
             raise MsgValidationError(
                 f"DNSSEC validation failed for {branch}: cannot trust PollyWeb branch ({exc})"
             ) from exc
-        answers = resolver.resolve(dns_name, "TXT")
+        answers = _resolve_with_dnssec(
+            dns_name,
+            "TXT")
     except Exception as exc:
         raise MsgValidationError(f"DKIM lookup failed for {dns_name}: {exc}") from exc
-
-    if not (answers.response.flags & dns.flags.AD):
-        raise MsgValidationError(
-            f"DNSSEC not enabled for {dns_name}: cannot trust DKIM public key"
-        )
 
     for rdata in answers:
         txt = b"".join(rdata.strings).decode("utf-8")

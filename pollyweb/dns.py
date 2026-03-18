@@ -42,41 +42,139 @@ def dkim_dns_name(domain: str, selector: str) -> str:
     return f"{selector}._domainkey.{pollyweb_domain(domain)}"
 
 
-def validate_pollyweb_branch(resolver, domain: str) -> None:
+DNSSEC_FALLBACK_NAMESERVERS = [
+    "1.1.1.1",
+    "1.0.0.1",
+]
+
+
+def _configure_dnssec_edns(
+    resolver
+) -> None:
+    """Enable DNSSEC-aware EDNS options on a resolver."""
+
+    import dns.flags
+
+    resolver.use_edns(
+        edns = 0,
+        ednsflags = dns.flags.DO,
+        payload = 4096)
+
+
+def _response_has_ad_flag(
+    answer
+) -> bool:
+    """Return whether a resolver answer was DNSSEC validated."""
+
+    import dns.flags
+
+    return bool(answer.response.flags & dns.flags.AD)
+
+
+def _iter_dnssec_resolvers():
+    """Yield resolvers that can be used to request DNSSEC-validated answers."""
+
+    import dns.resolver
+
+    default_resolver = dns.resolver.Resolver()
+
+    _configure_dnssec_edns(
+        default_resolver)
+
+    yield default_resolver
+
+    for nameserver in DNSSEC_FALLBACK_NAMESERVERS:
+        fallback_resolver = dns.resolver.Resolver(configure = False)
+        fallback_resolver.nameservers = [nameserver]
+        fallback_resolver.search = []
+        fallback_resolver.port = 53
+
+        _configure_dnssec_edns(
+            fallback_resolver)
+
+        yield fallback_resolver
+
+
+def _resolve_with_dnssec(
+    qname: str,
+    rdtype: str,
+    *,
+    raise_on_no_answer: bool = True
+):
+    """Resolve a name and require a DNSSEC-validated answer from any trusted resolver."""
+
+    last_answer = None
+    last_exception = None
+
+    for resolver in _iter_dnssec_resolvers():
+        try:
+            answer = resolver.resolve(
+                qname,
+                rdtype,
+                raise_on_no_answer = raise_on_no_answer)
+        except Exception as exc:
+            last_exception = exc
+            continue
+
+        last_answer = answer
+
+        if _response_has_ad_flag(
+            answer):
+            return answer
+
+    if last_exception is not None and last_answer is None:
+        raise last_exception
+
+    if last_answer is not None:
+        return last_answer
+
+    raise ValueError(f"DNS lookup failed for {qname}")
+
+
+def validate_pollyweb_branch(domain: str) -> None:
+    """Require DNSSEC validation for the delegated PollyWeb branch."""
+
     import dns.flags
 
     branch = pollyweb_domain(domain)
     try:
-        answer = resolver.resolve(branch, "DS", raise_on_no_answer=False)
+        answer = _resolve_with_dnssec(
+            branch,
+            "DS",
+            raise_on_no_answer = False)
     except Exception as exc:
         raise ValueError(f"DNSSEC validation failed for {branch}: {exc}") from exc
 
-    if not (answer.response.flags & dns.flags.AD):
+    if not _response_has_ad_flag(
+        answer):
         raise ValueError(f"DNSSEC validation failed for {branch}")
 
 
 def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Optional[tuple[str, bytes, str]]:
-    import dns.flags
     import dns.resolver
 
     dns_name = dkim_dns_name(domain, selector)
-    resolver = dns.resolver.Resolver()
     try:
         if require_dnssec:
-            # Enable EDNS with DO flag to request DNSSEC validation
-            resolver.use_edns(edns=0, ednsflags=dns.flags.DO, payload=4096)
-            validate_pollyweb_branch(resolver, domain)
+            validate_pollyweb_branch(domain)
     except ValueError:
         raise
     except Exception:
         return None
 
     try:
-        answers = resolver.resolve(dns_name, "TXT")
+        if require_dnssec:
+            answers = _resolve_with_dnssec(
+                dns_name,
+                "TXT")
+        else:
+            resolver = dns.resolver.Resolver()
+            answers = resolver.resolve(dns_name, "TXT")
     except Exception:
         return None
 
-    if require_dnssec and not (answers.response.flags & dns.flags.AD):
+    if require_dnssec and not _response_has_ad_flag(
+        answers):
         raise ValueError(f"DNSSEC validation failed for {dns_name}")
 
     for rdata in answers:
