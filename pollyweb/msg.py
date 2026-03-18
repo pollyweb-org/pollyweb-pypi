@@ -248,7 +248,13 @@ def _validate_wire_fields(
         set(mapping.keys()) - set(allowed_top_level_fields))
     if unexpected_fields:
         joined_fields = ", ".join(unexpected_fields)
-        expected_fields = ", ".join(sorted(allowed_top_level_fields))
+        expected_values = sorted(allowed_top_level_fields)
+        if len(expected_values) > 1:
+            expected_fields = (
+                ", ".join(expected_values[:-1]) + f", and {expected_values[-1]}"
+            )
+        else:
+            expected_fields = expected_values[0]
         raise MsgValidationError(
             f"Unexpected top-level field(s): {joined_fields}. "
             f"Expected only {expected_fields}."

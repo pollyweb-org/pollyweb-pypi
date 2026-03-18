@@ -414,7 +414,7 @@ class TestMsg:
 
         assert str(exc_info.value) == (
             "Unexpected top-level field(s): Request. "
-            "Expected only Body, Hash, Header, Signature."
+            "Expected only Body, Hash, Header, and Signature."
         )
 
     def test_verify_details_can_enforce_expected_echo_headers(
