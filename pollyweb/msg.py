@@ -18,7 +18,6 @@ from pollyweb._crypto import (
     canonical_signature_algorithm,
     decode_ascii_envelope,
     encode_dkim_public_key,
-    encode_signature,
     load_dkim_public_key,
     signature_algorithm_for_public_key,
     verify_signature,
@@ -409,90 +408,6 @@ class Msg(Struct):
         return json.dumps(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         ).encode("utf-8")
-
-    def with_signature(
-        self,
-        signature: bytes,
-        *,
-        signature_algorithm: Optional[str] = None,
-    ) -> "Msg":
-        """Attach signature bytes and derived hash to this msg.
-
-        Intended for external signers such as AWS KMS that already produced the
-        signature over ``self.canonical()``.
-        """
-        self._validate_required_fields(require_selector=False, require_from=True)
-        selected_algorithm = (
-            canonical_signature_algorithm(signature_algorithm)
-            if signature_algorithm is not None
-            else self.Algorithm
-        )
-        if not selected_algorithm:
-            raise MsgValidationError("Missing Algorithm")
-
-        wire_algorithm = (
-            ""
-            if _omit_algorithm_for_domain_sender(self.From)
-            else selected_algorithm
-        )
-        msg = replace(self, Algorithm=wire_algorithm)
-        canonical = msg.canonical()
-        hash_hex = hashlib.sha256(canonical).hexdigest()
-        return replace(
-            msg,
-            Hash=hash_hex,
-            Signature=encode_signature(signature),
-        )
-
-    def sign_with(
-        self,
-        signer,
-        *,
-        signature_algorithm: str,
-    ) -> "Msg":
-        """Sign this msg with an external signer callable.
-
-        ``signer`` receives the canonical message bytes and must return the raw
-        signature bytes for ``signature_algorithm``.
-        """
-        self._validate_required_fields(require_selector=False, require_from=True)
-        algorithm = canonical_signature_algorithm(signature_algorithm)
-        wire_algorithm = "" if _omit_algorithm_for_domain_sender(self.From) else algorithm
-        msg = replace(self, Algorithm=wire_algorithm)
-        try:
-            signature = signer(msg.canonical())
-        except (TypeError, ValueError) as exc:
-            raise MsgValidationError(str(exc)) from exc
-        return msg.with_signature(
-            signature,
-            signature_algorithm = algorithm)
-
-    def sign_detached(
-        self,
-        signer,
-        *,
-        signature_algorithm: str,
-    ) -> "Msg":
-        """Sign this msg without serializing ``Algorithm`` into the result."""
-
-        self._validate_required_fields(require_selector=False, require_from=True)
-        algorithm = canonical_signature_algorithm(signature_algorithm)
-
-        # Sign the canonical payload exactly as it will be serialized on the wire,
-        # while still using the caller-selected algorithm for the crypto operation.
-        canonical = self.canonical()
-
-        try:
-            signature = signer(canonical, algorithm)
-        except (TypeError, ValueError) as exc:
-            raise MsgValidationError(str(exc)) from exc
-
-        hash_hex = hashlib.sha256(canonical).hexdigest()
-        return replace(
-            self,
-            Hash = hash_hex,
-            Signature = encode_signature(signature),
-        )
 
     def _validate_schema(self) -> None:
         if self.Schema != SCHEMA:

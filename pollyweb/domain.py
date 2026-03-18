@@ -1,4 +1,5 @@
 """PollyWeb Domain — signing authority for outbound messages."""
+import hashlib
 from dataclasses import dataclass, replace
 import json
 from typing import Callable, Optional
@@ -10,7 +11,7 @@ from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorit
 from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import Msg, normalize_domain_name
-from pollyweb._crypto import sign_message
+from pollyweb._crypto import encode_signature, sign_message
 
 MANIFEST_URLS = (
     "https://{domain}/manifest",
@@ -83,6 +84,23 @@ class Domain:
         """Return the signing algorithm declared by the sender's DKIM record."""
         return signature_algorithm_for_dkim_record(dkim_record)
 
+    def _signed_msg(
+        self,
+        msg: Msg,
+        signer: Callable[[bytes, str], bytes],
+        *,
+        signature_algorithm: str
+    ) -> Msg:
+        """Return *msg* with hash and signature fields populated."""
+
+        canonical = msg.canonical()
+        signature = signer(canonical, signature_algorithm)
+
+        return replace(
+            msg,
+            Hash = hashlib.sha256(canonical).hexdigest(),
+            Signature = encode_signature(signature))
+
     def dns(self):
         """Return ``{selector: txt}`` for publishing this domain's DKIM key.
 
@@ -130,7 +148,8 @@ class Domain:
 
         if self.KeyPair is not None:
             algorithm = self._signature_algorithm(dkim_record)
-            return prepared.sign_detached(
+            return self._signed_msg(
+                prepared,
                 lambda canonical, selected_algorithm: sign_message(
                     self.KeyPair.PrivateKey,
                     canonical,
@@ -152,7 +171,8 @@ class Domain:
 
         algorithm = self._signature_algorithm(dkim_record)
 
-        return prepared.sign_detached(
+        return self._signed_msg(
+            prepared,
             lambda canonical, selected_algorithm: self.Signer(canonical),
             signature_algorithm = algorithm,
         )

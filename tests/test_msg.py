@@ -84,6 +84,24 @@ def _sign_legacy_ed25519(msg, private_key):
     )
 
 
+def _sign_msg(
+    msg,
+    signer,
+    *,
+    signature_algorithm: str,
+    wire_algorithm: str | None = None):
+    normalized_algorithm = pw.msg.canonical_signature_algorithm(signature_algorithm)
+    prepared = replace(
+        msg,
+        Algorithm = normalized_algorithm if wire_algorithm is None else wire_algorithm)
+    canonical = prepared.canonical()
+    signature = signer(canonical, normalized_algorithm)
+    return replace(
+        prepared,
+        Hash = hashlib.sha256(canonical).hexdigest(),
+        Signature = base64.b64encode(signature).decode("ascii"))
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -116,9 +134,11 @@ def msg():
 
 @pytest.fixture()
 def signed(msg, private_key):
-    return msg.sign_with(
-        lambda canonical: private_key.sign(canonical),
-        signature_algorithm = "ed25519-sha256")
+    return _sign_msg(
+        msg,
+        lambda canonical, _algorithm: private_key.sign(canonical),
+        signature_algorithm = "ed25519-sha256",
+        wire_algorithm = "")
 
 
 # ---------------------------------------------------------------------------
@@ -368,33 +388,6 @@ class TestMsg:
         )
         assert exc_info.value.dns_diagnostics == diagnostics
 
-    def test_sign_with_external_signer_returns_signed_msg(self, msg, private_key, public_key):
-        signer_calls = []
-
-        def external_signer(canonical: bytes) -> bytes:
-            signer_calls.append(canonical)
-            return private_key.sign(canonical)
-
-        signed = msg.sign_with(external_signer, signature_algorithm="ed25519-sha256")
-
-        assert signer_calls == [signed.canonical()]
-        assert signed.Algorithm == ""
-        assert signed.Hash == hashlib.sha256(signed.canonical()).hexdigest()
-        assert signed.Signature is not None
-        assert signed.verify(public_key) is True
-
-    def test_with_signature_attaches_hash_and_signature(self, msg, private_key, public_key):
-        canonical = msg.canonical()
-        signed = msg.with_signature(
-            private_key.sign(canonical),
-            signature_algorithm="ed25519-sha256",
-        )
-
-        assert signed.Algorithm == ""
-        assert signed.Hash == hashlib.sha256(canonical).hexdigest()
-        assert signed.Signature is not None
-        assert signed.verify(public_key) is True
-
     def test_dkim_public_key_value_returns_p_tag_value(self, public_key):
         value = pw.dkim_public_key_value(public_key)
 
@@ -477,19 +470,6 @@ class TestMsg:
         with pytest.raises(pw.MsgValidationError, match="Unsupported signature algorithm"):
             pw.Msg(To="b.dom", Subject="Ping", Algorithm="ml-dsa-87-sha512")
 
-    def test_sign_with_requires_from(self):
-        msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
-
-        with pytest.raises(pw.MsgValidationError, match="Missing From"):
-            msg.sign_with(
-                lambda canonical: b"signature",
-                signature_algorithm = "ed25519-sha256")
-
-
-# ---------------------------------------------------------------------------
-# Msg.canonical
-# ---------------------------------------------------------------------------
-
 class TestCanonical:
     def test_returns_bytes(self, msg):
         assert isinstance(msg.canonical(), bytes)
@@ -540,7 +520,7 @@ class TestCanonical:
 
 
 # ---------------------------------------------------------------------------
-# Msg.sign_with / Msg.with_signature
+# Signed message behavior
 # ---------------------------------------------------------------------------
 
 class TestSign:
@@ -554,7 +534,7 @@ class TestSign:
         assert msg.Hash is None
         assert signed.Hash is not None
 
-    def test_rsa_round_trip_via_sign_with(self):
+    def test_rsa_round_trip_with_manually_signed_msg(self):
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         msg = pw.Msg(
             From="sender.dom",
@@ -564,13 +544,15 @@ class TestSign:
             Body={"greeting": "hi"},
         )
 
-        signed = msg.sign_with(
-            lambda canonical: private_key.sign(
+        signed = _sign_msg(
+            msg,
+            lambda canonical, _algorithm: private_key.sign(
                 canonical,
                 padding.PKCS1v15(),
                 hashes.SHA256(),
             ),
-            signature_algorithm = "rsa-sha256")
+            signature_algorithm = "rsa-sha256",
+            wire_algorithm = "")
 
         assert signed.Algorithm == ""
         assert signed.verify(private_key.public_key()) is True
@@ -617,9 +599,12 @@ class TestSend:
             To="receiver.dom",
             Subject="Hello@Host",
             Selector="pw1",
-        ).sign_with(
-            lambda canonical: keypair.PrivateKey.sign(canonical),
-            signature_algorithm = "ed25519-sha256")
+        )
+        aliased = _sign_msg(
+            aliased,
+            lambda canonical, _algorithm: keypair.PrivateKey.sign(canonical),
+            signature_algorithm = "ed25519-sha256",
+            wire_algorithm = "")
 
         mock_response = MagicMock()
         mock_response.read.return_value = b'{"status": "ok"}'
@@ -668,8 +653,9 @@ class TestValidate:
             Subject="Hello@Host",
             Body={"greeting": "hi"},
         )
-        signed = msg.sign_with(
-            lambda canonical: private_key.sign(canonical),
+        signed = _sign_msg(
+            msg,
+            lambda canonical, _algorithm: private_key.sign(canonical),
             signature_algorithm = "ed25519-sha256")
         assert signed.Selector == ""
         assert signed.Algorithm == "ed25519-sha256"
@@ -722,9 +708,12 @@ class TestValidate:
     def test_missing_required_field(self, private_key, public_key):
         signed_env = pw.Msg(
             From="a.dom", To="b.dom", Subject="Ping", Selector="pw1", Body={},
-        ).sign_with(
-            lambda canonical: private_key.sign(canonical),
-            signature_algorithm = "ed25519-sha256")
+        )
+        signed_env = _sign_msg(
+            signed_env,
+            lambda canonical, _algorithm: private_key.sign(canonical),
+            signature_algorithm = "ed25519-sha256",
+            wire_algorithm = "")
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             replace(signed_env, Subject="").verify(public_key)
 

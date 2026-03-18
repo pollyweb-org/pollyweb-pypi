@@ -4,6 +4,7 @@ This file tracks the user-visible features shipped in each published `pollyweb` 
 
 ## Unreleased
 - Removed the public `Msg.sign()` method so only `Domain` and `Wallet` own message signing.
+- Removed the remaining `Msg` signing helpers so message signing now happens only through `Domain.sign()` or `Wallet.sign()`.
 - Made `Wallet.sign()` reject `ID == "Anonymous"` so anonymous wallets remain unsigned-only senders.
 - Added an explicit parser-level rejection for domain-originated messages that serialize `Header.Algorithm`; domain receivers must derive the algorithm from DKIM instead.
 - Made DNSSEC-backed DKIM verification fall back to trusted validating resolvers when the local resolver returns unsigned answers without the `AD` flag.

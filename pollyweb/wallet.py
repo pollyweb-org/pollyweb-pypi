@@ -1,8 +1,9 @@
 """PollyWeb Wallet — anonymous or pseudonymous signing authority."""
+import hashlib
 import uuid
 from dataclasses import dataclass, field, replace
 
-from pollyweb._crypto import sign_message
+from pollyweb._crypto import encode_signature, sign_message
 from pollyweb.keypair import KeyPair
 from pollyweb.msg import Msg
 
@@ -40,15 +41,18 @@ class Wallet:
             msg,
             From = self.ID,
             Selector = "",
-            Algorithm = "")
+            Algorithm = "ed25519-sha256")
+        canonical = prepared.canonical()
+        signature = sign_message(
+            self.KeyPair.PrivateKey,
+            canonical,
+            signature_algorithm = "ed25519-sha256",
+        )[0]
 
-        return prepared.sign_with(
-            lambda canonical: sign_message(
-                self.KeyPair.PrivateKey,
-                canonical,
-                signature_algorithm = "ed25519-sha256",
-            )[0],
-            signature_algorithm = "ed25519-sha256")
+        return replace(
+            prepared,
+            Hash = hashlib.sha256(canonical).hexdigest(),
+            Signature = encode_signature(signature))
 
     def send(self, msg: Msg):
         """Sign *msg*, POST it to the receiver inbox, and return the parsed response.
