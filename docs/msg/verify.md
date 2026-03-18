@@ -1,4 +1,4 @@
-# `msg.verify(public_key=None)`
+# `msg.verify(public_key=None, *, expected_from=None, expected_to=None, allowed_to_values=None, expected_subject=None, expected_correlation=None)`
 
 Validates message structure, canonical hash, and signature. Returns `True` on success and raises `MsgValidationError` on failure.
 
@@ -29,6 +29,12 @@ must both have the `AD` flag set.
 
 If `public_key` is passed explicitly, `Selector` is not required because DNS resolution is skipped. To validate only structure and the canonical hash without checking the signature, use [`msg.validate_unsigned()`](validate_unsigned.md).
 
+You can also supply optional expected header values when the surrounding flow
+knows what a valid reply must look like. `expected_from`, `expected_to`,
+`allowed_to_values`, `expected_subject`, and `expected_correlation` are checked
+after the signed payload itself verifies, so callers can reject validly signed
+messages that do not belong to the expected exchange.
+
 ## Validation order
 
 1. `Schema` must match `pollyweb.org/MSG:1.0`
@@ -49,6 +55,11 @@ signed.verify(public_key)
 signed.verify(pair.PublicKey)
 received.verify(db_public_key)
 signed.verify()
+signed.verify(
+    expected_from = "vault.example.com",
+    expected_subject = "Echo@Domain",
+    expected_correlation = request_id,
+    allowed_to_values = {"vault.example.com", bind_uuid})
 details = signed.verify_details(public_key)
 ```
 

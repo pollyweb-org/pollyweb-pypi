@@ -388,6 +388,80 @@ class TestMsg:
         )
         assert exc_info.value.dns_diagnostics == diagnostics
 
+    def test_parse_rejects_unexpected_top_level_fields_when_requested(self):
+        """Strict parse mode should fail loudly on extra wire fields."""
+
+        payload = {
+            "Header": {
+                "From": "sender.dom",
+                "To": "receiver.dom",
+                "Subject": "Hello@Host",
+                "Correlation": "123e4567-e89b-12d3-a456-426614174000",
+                "Timestamp": "2026-03-18T16:18:38.411Z",
+                "Schema": "pollyweb.org/MSG:1.0",
+                "Selector": "pw1",
+            },
+            "Body": {"Echo": "ok"},
+            "Hash": "hash",
+            "Signature": "signature",
+            "Request": {"Body": {}},
+        }
+
+        with pytest.raises(pw.MsgValidationError) as exc_info:
+            pw.Msg.parse(
+                payload,
+                allowed_top_level_fields = {"Body", "Hash", "Header", "Signature"})
+
+        assert str(exc_info.value) == (
+            "Unexpected top-level field(s): Request. "
+            "Expected only Body, Hash, Header, Signature."
+        )
+
+    def test_verify_details_can_enforce_expected_echo_headers(
+        self,
+        signed,
+        public_key,
+    ):
+        """Callers can layer flow-specific header expectations onto verification."""
+
+        details = signed.verify_details(
+            public_key,
+            expected_from = "sender.dom",
+            expected_subject = "Hello@Host",
+            expected_correlation = signed.Correlation,
+            allowed_to_values = {"receiver.dom", "123e4567-e89b-12d3-a456-426614174000"})
+
+        assert details.from_value == "sender.dom"
+        assert details.to_value == "receiver.dom"
+
+    def test_verify_rejects_unexpected_expected_from(
+        self,
+        signed,
+        public_key,
+    ):
+        """Expected header policies should fail after signature verification."""
+
+        with pytest.raises(pw.MsgValidationError) as exc_info:
+            signed.verify(
+                public_key,
+                expected_from = "other.dom")
+
+        assert str(exc_info.value) == "Unexpected From value: sender.dom"
+
+    def test_verify_rejects_unexpected_allowed_to_value(
+        self,
+        signed,
+        public_key,
+    ):
+        """Expected recipient policies should support explicit allow-lists."""
+
+        with pytest.raises(pw.MsgValidationError) as exc_info:
+            signed.verify(
+                public_key,
+                allowed_to_values = {"123e4567-e89b-12d3-a456-426614174000"})
+
+        assert str(exc_info.value) == "Unexpected To value: receiver.dom"
+
     def test_dkim_public_key_value_returns_p_tag_value(self, public_key):
         value = pw.dkim_public_key_value(public_key)
 

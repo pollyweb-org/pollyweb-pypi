@@ -44,6 +44,7 @@ _Z_TIMESTAMP_RE = re.compile(
 )
 _POLLYWEB_DOMAIN_ALIAS_SUFFIX = ".dom"
 _POLLYWEB_DOMAIN_CANONICAL_SUFFIX = ".pollyweb.org"
+_DEFAULT_WIRE_FIELDS = frozenset({"Body", "Hash", "Header", "Signature"})
 
 
 def _is_domain_name(value: str) -> bool:
@@ -231,6 +232,27 @@ def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
             return embedded_mapping
 
     return normalized
+
+
+def _validate_wire_fields(
+    mapping: Mapping[str, Any],
+    *,
+    allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None
+) -> None:
+    """Reject unexpected top-level wire fields when a policy is provided."""
+
+    if allowed_top_level_fields is None:
+        return
+
+    unexpected_fields = sorted(
+        set(mapping.keys()) - set(allowed_top_level_fields))
+    if unexpected_fields:
+        joined_fields = ", ".join(unexpected_fields)
+        expected_fields = ", ".join(sorted(allowed_top_level_fields))
+        raise MsgValidationError(
+            f"Unexpected top-level field(s): {joined_fields}. "
+            f"Expected only {expected_fields}."
+        )
 
 
 class MsgValidationError(Exception):
@@ -446,17 +468,70 @@ class Msg(Struct):
         self._validate_hash()
         return True
 
-    def verify(self, public_key: Optional[object] = None) -> bool:
-        """Validate structure, canonical hash, and signature.
+    def _validate_expected_fields(
+        self,
+        *,
+        expected_from: Optional[str] = None,
+        expected_to: Optional[str] = None,
+        allowed_to_values: Optional[set[str]] = None,
+        expected_subject: Optional[str] = None,
+        expected_correlation: Optional[str] = None
+    ) -> None:
+        """Validate optional caller-provided expectations about signed headers."""
 
-        If *public_key* is omitted, the key is fetched from DNS using the
-        selector and the From domain: ``{Selector}._domainkey.pw.{From}`` (TXT record,
-        DKIM wire format: ``v=DKIM1; k=<key-type>; p=<base64>``).
+        if expected_from is not None and self.From != expected_from:
+            raise MsgValidationError(f"Unexpected From value: {self.From}")
+
+        if expected_subject is not None and self.Subject != expected_subject:
+            raise MsgValidationError(f"Unexpected Subject: {self.Subject}")
+
+        if expected_correlation is not None and self.Correlation != expected_correlation:
+            raise MsgValidationError(
+                f"Unexpected Correlation: {self.Correlation}")
+
+        valid_to_values = (
+            set(allowed_to_values)
+            if allowed_to_values is not None
+            else ({expected_to} if expected_to is not None else None)
+        )
+        if valid_to_values is not None and self.To not in valid_to_values:
+            raise MsgValidationError(f"Unexpected To value: {self.To}")
+
+    def verify(
+        self,
+        public_key: Optional[object] = None,
+        *,
+        expected_from: Optional[str] = None,
+        expected_to: Optional[str] = None,
+        allowed_to_values: Optional[set[str]] = None,
+        expected_subject: Optional[str] = None,
+        expected_correlation: Optional[str] = None
+    ) -> bool:
+        """Validate structure, canonical hash, signature, and optional expectations.
+
+        Optional expected values let callers enforce subject- or flow-specific
+        header constraints after the signed payload is verified.
         """
-        self.verify_details(public_key)
+
+        self.verify_details(
+            public_key,
+            expected_from = expected_from,
+            expected_to = expected_to,
+            allowed_to_values = allowed_to_values,
+            expected_subject = expected_subject,
+            expected_correlation = expected_correlation)
         return True
 
-    def verify_details(self, public_key: Optional[object] = None) -> VerificationDetails:
+    def verify_details(
+        self,
+        public_key: Optional[object] = None,
+        *,
+        expected_from: Optional[str] = None,
+        expected_to: Optional[str] = None,
+        allowed_to_values: Optional[set[str]] = None,
+        expected_subject: Optional[str] = None,
+        expected_correlation: Optional[str] = None
+    ) -> VerificationDetails:
         """Validate the message and return structured verification details."""
         self._validate_schema()
         dns_lookup_used = public_key is None
@@ -505,6 +580,13 @@ class Msg(Struct):
             raise MsgValidationError(
                 str(exc),
                 dns_diagnostics = dns_diagnostics) from exc
+
+        self._validate_expected_fields(
+            expected_from = expected_from,
+            expected_to = expected_to,
+            allowed_to_values = allowed_to_values,
+            expected_subject = expected_subject,
+            expected_correlation = expected_correlation)
 
         return VerificationDetails(
             schema=str(self.Schema),
@@ -597,13 +679,22 @@ class Msg(Struct):
         return d
 
     @classmethod
-    def parse(cls, value: Union["Msg", Mapping[str, Any], str, bytes]) -> "Msg":
+    def parse(
+        cls,
+        value: Union["Msg", Mapping[str, Any], str, bytes],
+        *,
+        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None
+    ) -> "Msg":
         """Parse a Msg from another Msg, a wire-format dict, or JSON/YAML text."""
         if isinstance(value, cls):
             return value
 
         if isinstance(value, Mapping):
-            return cls.from_dict(_extract_msg_mapping(value))
+            mapping = _extract_msg_mapping(value)
+            _validate_wire_fields(
+                mapping,
+                allowed_top_level_fields = allowed_top_level_fields)
+            return cls.from_dict(mapping)
 
         if isinstance(value, bytes):
             value = value.decode("utf-8")
@@ -617,15 +708,26 @@ class Msg(Struct):
             if isinstance(loaded, cls):
                 return loaded
             if isinstance(loaded, Mapping):
-                return cls.from_dict(_extract_msg_mapping(loaded))
+                mapping = _extract_msg_mapping(loaded)
+                _validate_wire_fields(
+                    mapping,
+                    allowed_top_level_fields = allowed_top_level_fields)
+                return cls.from_dict(mapping)
             raise TypeError("Parsed message must be a mapping")
 
         raise TypeError("Msg.parse() expects a Msg, mapping, str, or bytes")
 
     @classmethod
-    def load(cls, value: Union["Msg", Mapping[str, Any], str, bytes]) -> "Msg":
+    def load(
+        cls,
+        value: Union["Msg", Mapping[str, Any], str, bytes],
+        *,
+        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None
+    ) -> "Msg":
         """Backward-compatible alias for :meth:`parse`."""
-        return cls.parse(value)
+        return cls.parse(
+            value,
+            allowed_top_level_fields = allowed_top_level_fields)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Msg":

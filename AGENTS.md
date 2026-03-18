@@ -95,3 +95,4 @@ git config core.hooksPath .githooks
 - Reusable PollyWeb domain alias handling should live in `pollyweb.msg.normalize_domain_name()`, and send paths should normalize `.dom` targets only when building the inbox URL so the signed `Header.To` value remains unchanged.
 - Redirecting setuptools' local build tree away from the default `build/` folder can be done repo-wide with a tiny `setup.cfg` section: `[build] build-base = .build`.
 - `Msg` should stay as a transport and verification envelope, while signing entry points live on higher-level authorities such as `Domain` and `Wallet`; removing direct `Msg.sign()` usage avoids bypassing sender-specific signing rules.
+- Flow-specific reply checks such as allowed top-level wire fields or expected signed headers belong on `Msg.parse()` and `Msg.verify()` / `Msg.verify_details()` as optional policies, so thin clients like `wallet-cli` can reuse the library contract instead of reimplementing echo verification.
