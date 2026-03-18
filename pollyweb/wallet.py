@@ -33,6 +33,9 @@ class Wallet:
 
     def sign(self, msg: Msg) -> Msg:
         """Return a new Msg with From set to this wallet's ID and an Ed25519 signature."""
+        if self.ID == "Anonymous":
+            raise ValueError("Anonymous wallets cannot sign messages")
+
         prepared = replace(
             msg,
             From = self.ID,

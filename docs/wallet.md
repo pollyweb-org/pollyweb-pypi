@@ -4,7 +4,7 @@ A self-contained signing authority that sends messages **without a domain**.
 `From` is set to the wallet's `ID` — either `"Anonymous"` or a stable UUID string.
 No DKIM DNS record is involved. UUID-backed wallets still sign, and recipients
 verify them by supplying the wallet's public key directly. Fully anonymous
-wallet sends do not sign.
+wallet sends do not sign, and anonymous wallets cannot call `wallet.sign()`.
 
 **See also:** [`Domain`](domain.md), [`KeyPair`](keypair.md), [`Msg`](msg.md)
 
@@ -57,12 +57,13 @@ pw.Wallet(KeyPair=pw.KeyPair(), ID="<uuid4>")
 Returns a new `Msg` with `From` set to `wallet.ID`, signed with the wallet's private key.
 The original `msg` is unchanged (frozen dataclass).
 Wallet signing is implemented on `Wallet` itself rather than via `Msg.sign()`.
+Raises `ValueError` when `wallet.ID == "Anonymous"`.
 
 ### `wallet.send(msg) → Msg | dict | str`
 
 When `wallet.ID` is a UUID, `wallet.send()` signs `msg` then POSTs it to
 `https://pw.{msg.To}/inbox`.
 When `wallet.ID == "Anonymous"`, `wallet.send()` sends an unsigned anonymous
-message instead.
+message instead and does not call `wallet.sign()`.
 Returns the parsed response body: a `Msg` if the server replies with a PollyWeb message, a `dict` if the response is JSON, or a `str` otherwise.
 Raises `urllib.error.URLError` on network failure.
