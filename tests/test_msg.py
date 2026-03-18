@@ -376,20 +376,19 @@ class TestMsg:
         signed = msg.sign_with(external_signer, signature_algorithm="ed25519-sha256")
 
         assert signer_calls == [signed.canonical()]
-        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Algorithm == ""
         assert signed.Hash == hashlib.sha256(signed.canonical()).hexdigest()
         assert signed.Signature is not None
         assert signed.verify(public_key) is True
 
     def test_with_signature_attaches_hash_and_signature(self, msg, private_key, public_key):
-        algorithm_msg = replace(msg, Algorithm="ed25519-sha256")
-        canonical = algorithm_msg.canonical()
+        canonical = msg.canonical()
         signed = msg.with_signature(
             private_key.sign(canonical),
             signature_algorithm="ed25519-sha256",
         )
 
-        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Algorithm == ""
         assert signed.Hash == hashlib.sha256(canonical).hexdigest()
         assert signed.Signature is not None
         assert signed.verify(public_key) is True
@@ -527,10 +526,9 @@ class TestCanonical:
 
     def test_algorithm_is_included_in_canonical_form_when_present(self):
         msg = pw.Msg(
-            From="sender.dom",
+            From="Anonymous",
             To="receiver.dom",
             Subject="Hello@Host",
-            Selector="pw1",
             Algorithm="ed25519-sha256",
             Body={"greeting": "hi"},
         )
@@ -543,7 +541,7 @@ class TestCanonical:
 
 class TestSign:
     def test_hash_and_signature_present(self, signed):
-        assert signed.Algorithm == "ed25519-sha256"
+        assert signed.Algorithm == ""
         assert signed.Hash is not None
         assert signed.Signature is not None
 
@@ -564,7 +562,7 @@ class TestSign:
 
         signed = msg.sign(private_key)
 
-        assert signed.Algorithm == "rsa-sha256"
+        assert signed.Algorithm == ""
         assert signed.verify(private_key.public_key()) is True
 
 
@@ -598,7 +596,7 @@ class TestSend:
         assert result == {"status": "ok"}
         assert resolver.resolve.call_args_list == [
             call("pw.sender.dom", "DS", raise_on_no_answer=False),
-            call("pw1._domainkey.pw.sender.dom", "TXT"),
+            call("pw1._domainkey.pw.sender.dom", "TXT", raise_on_no_answer=True),
         ]
         urlopen.assert_called_once()
 
@@ -740,18 +738,13 @@ class TestValidate:
             replace(signed, Selector="").verify()
 
     def test_domain_verification_rejects_header_algorithm_that_disagrees_with_sender_dkim(self, signed, private_key, public_key):
-        """The sender DKIM record is authoritative for the domain message algorithm."""
-        mismatched = replace(signed, Algorithm="rsa-sha256").with_signature(
-            private_key.sign(replace(signed, Algorithm="rsa-sha256").canonical()),
-        )
-        resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key, key_type="ed25519"))
+        """Domain-originated messages must not serialize ``Header.Algorithm``."""
 
-        with resolver_patch:
-            with pytest.raises(
-                pw.MsgValidationError,
-                match="does not match DKIM algorithm ed25519-sha256",
-            ):
-                mismatched.verify()
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="Algorithm must be empty for domain senders",
+        ):
+            replace(signed, Algorithm="rsa-sha256")
 
     def test_missing_from_required_when_verifying(self, private_key):
         msg = pw.Msg(
@@ -919,7 +912,7 @@ class TestSerialization:
 
     def test_signed_dict_includes_hash_and_signature(self, signed):
         d = signed.to_dict()
-        assert d["Header"]["Algorithm"] == "ed25519-sha256"
+        assert "Algorithm" not in d["Header"]
         assert "Hash" in d
         assert "Signature" in d
 
@@ -956,12 +949,11 @@ class TestSerialization:
         msg = pw.Msg.from_dict(
             {
                 "Header": {
-                    "From": "sender.dom",
+                    "From": "123e4567-e89b-12d3-a456-426614174000",
                     "To": "receiver.dom",
                     "Subject": "Hello@Host",
                     "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                     "Timestamp": "2025-06-01T12:00:00.000Z",
-                    "Selector": "pw1",
                     "Algorithm": "rsa-sha256",
                     "Schema": SCHEMA,
                 },
