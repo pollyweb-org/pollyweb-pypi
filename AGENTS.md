@@ -92,3 +92,4 @@ git config core.hooksPath .githooks
 - For prompt-style chat wrappers, it is safer to omit empty optional fields from `to_dict()` so the generated wire body stays minimal while still round-tripping richer payloads when fields are present.
 - `Msg(value)` now delegates to `Msg.parse(value)` when called with a single non-string positional input and no `Subject`, so handler code can normalize raw wire mappings and supported AWS envelopes directly through the constructor while preserving the usual field validation rules.
 - Reusable PollyWeb domain alias handling should live in `pollyweb.msg.normalize_domain_name()`, and send paths should normalize `.dom` targets only when building the inbox URL so the signed `Header.To` value remains unchanged.
+- Redirecting setuptools' local build tree away from the default `build/` folder can be done repo-wide with a tiny `setup.cfg` section: `[build] build-base = .build`.
