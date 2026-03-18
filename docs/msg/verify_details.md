@@ -19,6 +19,7 @@ The result contains:
 - `correlation`
 - `selector`
 - `algorithm`
+- `dns_diagnostics` (`None` when verification used an explicit public key instead of DNS)
 
 ```python
 details = received.verify_details()
@@ -27,4 +28,5 @@ assert details.signature_valid is True
 assert details.dns_lookup_used is True
 print(details.selector)
 print(details.algorithm)
+print(details.dns_diagnostics)
 ```

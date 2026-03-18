@@ -1,9 +1,32 @@
 """Tests for pollyweb.dns."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from pollyweb.dns import DNS, fetch_dkim_entry
+from pollyweb.dns import DNS, fetch_dkim_entry, resolve_dkim_with_dnssec
 from pollyweb.msg import MsgValidationError, _resolve_dkim_public_key
+
+
+def _dns_answer(
+    *records: str,
+    ad_flag: bool
+):
+    """Build a fake resolver answer with optional DNSSEC authentication."""
+
+    import dns.flags
+    import dns.rcode
+
+    response = MagicMock()
+    response.flags = dns.flags.AD if ad_flag else 0
+    response.rcode.return_value = dns.rcode.NOERROR
+
+    answer = MagicMock()
+    answer.response = response
+    answer.__iter__ = lambda self: iter(
+        [MagicMock(to_text = lambda value = record: value) for record in records]
+    )
+    return answer
 
 
 @pytest.mark.live_dns
@@ -23,7 +46,7 @@ class TestFetchDkimEntryIntegration:
     )
     def test_pollyweb_domains_dns_must_validate_and_resolve(self, domain, selector):
         try:
-            key, key_type = _resolve_dkim_public_key(domain, selector)
+            key, key_type, _ = _resolve_dkim_public_key(domain, selector)
         except MsgValidationError as exc:
             pytest.fail(f"{domain} DNS is misconfigured: {exc}")
 
@@ -59,3 +82,41 @@ class TestDNSCheckIntegration:
         assert report["table"][0]["status"] == "ok"
         assert report["table"][0]["compliant"] is True
         assert report["table"][0]["message"] is None
+
+
+def test_resolve_dkim_with_dnssec_uses_fallback_resolver_when_primary_lacks_ad():
+    primary_resolver = MagicMock()
+    primary_resolver.nameservers = ["192.0.2.1"]
+    primary_resolver.resolve.side_effect = [
+        _dns_answer(
+            "48567 13 2 PRIMARY",
+            ad_flag = False),
+        _dns_answer(
+            '"v=DKIM1; k=ed25519; p=PRIMARY"',
+            ad_flag = False),
+    ]
+
+    fallback_resolver = MagicMock()
+    fallback_resolver.nameservers = ["8.8.8.8"]
+    fallback_resolver.resolve.side_effect = [
+        _dns_answer(
+            "48567 13 2 FALLBACK",
+            ad_flag = True),
+        _dns_answer(
+            '"v=DKIM1; k=ed25519; p=FALLBACK"',
+            ad_flag = True),
+    ]
+
+    with patch(
+        "pollyweb.dns._iter_dnssec_resolvers",
+        side_effect = lambda: iter([primary_resolver, fallback_resolver]),
+    ):
+        answer, diagnostics = resolve_dkim_with_dnssec(
+            "sender.dom",
+            "pw1")
+
+    assert diagnostics.Nameservers == ["8.8.8.8"]
+    assert diagnostics.Queries[0].AuthenticData is True
+    assert diagnostics.Queries[1].AuthenticData is True
+    assert diagnostics.Queries[1].Answers == ['"v=DKIM1; k=ed25519; p=FALLBACK"']
+    assert list(answer)[0].to_text() == '"v=DKIM1; k=ed25519; p=FALLBACK"'

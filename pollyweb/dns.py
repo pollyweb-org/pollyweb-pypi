@@ -11,6 +11,47 @@ from pollyweb._crypto import (
 )
 
 
+@dataclass(frozen = True)
+class DnsQueryDiagnostic:
+    """One DNS lookup result captured during verification."""
+
+    Name: str
+    Type: str
+    ResponseCode: str
+    AuthenticData: bool
+    Answers: list[str]
+    Error: str = ""
+
+
+@dataclass(frozen = True)
+class DnsVerificationDiagnostics:
+    """DNSSEC diagnostics captured from the package verification path."""
+
+    Domain: str
+    PollyWebBranch: str
+    Selector: str
+    DkimName: str
+    DnssecRequested: bool
+    Nameservers: list[str]
+    Queries: list[DnsQueryDiagnostic]
+    Error: str = ""
+
+
+class DnsLookupError(ValueError):
+    """Raised when DNSSEC-backed verification lookups fail."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostics: DnsVerificationDiagnostics | None = None
+    ) -> None:
+        """Store the failure message together with package-owned diagnostics."""
+
+        super().__init__(message)
+        self.dns_diagnostics = diagnostics
+
+
 def _parse_dkim_txt(txt: str) -> dict[str, str]:
     params = {}
     for part in txt.split(";"):
@@ -71,6 +112,43 @@ def _response_has_ad_flag(
     return bool(answer.response.flags & dns.flags.AD)
 
 
+def _query_nameservers(
+    resolver
+) -> list[str]:
+    """Return the configured nameservers for debug output."""
+
+    return [str(item) for item in resolver.nameservers]
+
+
+def _make_dns_query_diagnostic(
+    answer,
+    *,
+    query_name: str,
+    record_type: str
+) -> DnsQueryDiagnostic:
+    """Convert one resolver answer into a serializable diagnostic."""
+
+    import dns.rcode
+
+    response = getattr(answer, "response", None)
+    response_code = ""
+
+    if response is not None:
+        try:
+            response_code = dns.rcode.to_text(response.rcode())
+        except (AttributeError, TypeError, ValueError):
+            response_code = ""
+
+    return DnsQueryDiagnostic(
+        Name = query_name,
+        Type = record_type,
+        ResponseCode = response_code,
+        AuthenticData = _response_has_ad_flag(
+            answer),
+        Answers = [record.to_text() for record in answer],
+    )
+
+
 def _iter_dnssec_resolvers():
     """Yield resolvers that can be used to request DNSSEC-validated answers."""
 
@@ -95,6 +173,54 @@ def _iter_dnssec_resolvers():
         yield fallback_resolver
 
 
+def _resolve_with_dnssec_diagnostic(
+    qname: str,
+    rdtype: str,
+    *,
+    raise_on_no_answer: bool = True
+):
+    """Resolve one record and return the accepted answer plus its diagnostic."""
+
+    last_answer = None
+    last_diagnostic = None
+    last_exception = None
+    last_nameservers: list[str] = []
+
+    for resolver in _iter_dnssec_resolvers():
+        nameservers = _query_nameservers(
+            resolver)
+
+        try:
+            answer = resolver.resolve(
+                qname,
+                rdtype,
+                raise_on_no_answer = raise_on_no_answer)
+        except Exception as exc:
+            last_exception = exc
+            last_nameservers = nameservers
+            continue
+
+        diagnostic = _make_dns_query_diagnostic(
+            answer,
+            query_name = qname,
+            record_type = rdtype)
+        last_answer = answer
+        last_diagnostic = diagnostic
+        last_nameservers = nameservers
+
+        if _response_has_ad_flag(
+            answer):
+            return answer, diagnostic, nameservers
+
+    if last_answer is not None and last_diagnostic is not None:
+        return last_answer, last_diagnostic, last_nameservers
+
+    raise ValueError(
+        f"DNS lookup failed for {qname}: {last_exception}"
+        if last_exception is not None
+        else f"DNS lookup failed for {qname}")
+
+
 def _resolve_with_dnssec(
     qname: str,
     rdtype: str,
@@ -103,32 +229,16 @@ def _resolve_with_dnssec(
 ):
     """Resolve a name and require a DNSSEC-validated answer from any trusted resolver."""
 
-    last_answer = None
-    last_exception = None
+    answer, _, _ = _resolve_with_dnssec_diagnostic(
+        qname,
+        rdtype,
+        raise_on_no_answer = raise_on_no_answer)
 
-    for resolver in _iter_dnssec_resolvers():
-        try:
-            answer = resolver.resolve(
-                qname,
-                rdtype,
-                raise_on_no_answer = raise_on_no_answer)
-        except Exception as exc:
-            last_exception = exc
-            continue
+    if not _response_has_ad_flag(
+        answer):
+        raise ValueError(f"DNSSEC validation failed for {qname}")
 
-        last_answer = answer
-
-        if _response_has_ad_flag(
-            answer):
-            return answer
-
-    if last_exception is not None and last_answer is None:
-        raise last_exception
-
-    if last_answer is not None:
-        return last_answer
-
-    raise ValueError(f"DNS lookup failed for {qname}")
+    return answer
 
 
 def validate_pollyweb_branch(domain: str) -> None:
@@ -148,6 +258,97 @@ def validate_pollyweb_branch(domain: str) -> None:
     if not _response_has_ad_flag(
         answer):
         raise ValueError(f"DNSSEC validation failed for {branch}")
+
+
+def resolve_dkim_with_dnssec(
+    domain: str,
+    selector: str
+):
+    """Resolve the trusted DKIM TXT answer together with package diagnostics."""
+
+    branch = pollyweb_domain(domain)
+    dkim_name = dkim_dns_name(domain, selector)
+    diagnostics = DnsVerificationDiagnostics(
+        Domain = domain,
+        PollyWebBranch = branch,
+        Selector = selector,
+        DkimName = dkim_name,
+        DnssecRequested = True,
+        Nameservers = [],
+        Queries = [],
+    )
+
+    try:
+        branch_answer, branch_diagnostic, branch_nameservers = _resolve_with_dnssec_diagnostic(
+            branch,
+            "DS",
+            raise_on_no_answer = False)
+    except Exception as exc:
+        failed = DnsVerificationDiagnostics(
+            Domain = diagnostics.Domain,
+            PollyWebBranch = diagnostics.PollyWebBranch,
+            Selector = diagnostics.Selector,
+            DkimName = diagnostics.DkimName,
+            DnssecRequested = diagnostics.DnssecRequested,
+            Nameservers = diagnostics.Nameservers,
+            Queries = diagnostics.Queries,
+            Error = str(exc),
+        )
+        raise DnsLookupError(
+            f"DNSSEC validation failed for {branch}: {exc}",
+            diagnostics = failed) from exc
+
+    diagnostics = DnsVerificationDiagnostics(
+        Domain = diagnostics.Domain,
+        PollyWebBranch = diagnostics.PollyWebBranch,
+        Selector = diagnostics.Selector,
+        DkimName = diagnostics.DkimName,
+        DnssecRequested = diagnostics.DnssecRequested,
+        Nameservers = branch_nameservers,
+        Queries = [branch_diagnostic],
+    )
+
+    if not branch_diagnostic.AuthenticData:
+        raise DnsLookupError(
+            f"DNSSEC validation failed for {branch}",
+            diagnostics = diagnostics)
+
+    try:
+        dkim_answer, dkim_diagnostic, dkim_nameservers = _resolve_with_dnssec_diagnostic(
+            dkim_name,
+            "TXT")
+    except Exception as exc:
+        failed = DnsVerificationDiagnostics(
+            Domain = diagnostics.Domain,
+            PollyWebBranch = diagnostics.PollyWebBranch,
+            Selector = diagnostics.Selector,
+            DkimName = diagnostics.DkimName,
+            DnssecRequested = diagnostics.DnssecRequested,
+            Nameservers = diagnostics.Nameservers,
+            Queries = diagnostics.Queries,
+            Error = str(exc),
+        )
+        raise DnsLookupError(
+            f"DKIM lookup failed for {dkim_name}: {exc}",
+            diagnostics = failed) from exc
+
+    nameservers = dkim_nameservers or diagnostics.Nameservers
+    diagnostics = DnsVerificationDiagnostics(
+        Domain = diagnostics.Domain,
+        PollyWebBranch = diagnostics.PollyWebBranch,
+        Selector = diagnostics.Selector,
+        DkimName = diagnostics.DkimName,
+        DnssecRequested = diagnostics.DnssecRequested,
+        Nameservers = nameservers,
+        Queries = diagnostics.Queries + [dkim_diagnostic],
+    )
+
+    if not dkim_diagnostic.AuthenticData:
+        raise DnsLookupError(
+            f"DNSSEC not enabled for {dkim_name}: cannot trust DKIM public key",
+            diagnostics = diagnostics)
+
+    return dkim_answer, diagnostics
 
 
 def fetch_dkim_entry(domain: str, selector: str, *, require_dnssec: bool) -> Optional[tuple[str, bytes, str]]:

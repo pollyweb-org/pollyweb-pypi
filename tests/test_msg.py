@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 import pollyweb as pw
+from pollyweb.dns import DnsLookupError, DnsQueryDiagnostic, DnsVerificationDiagnostics
 from pollyweb.msg import SCHEMA
 
 
@@ -280,6 +281,90 @@ class TestMsg:
         assert details.correlation == signed.Correlation
         assert details.selector == "pw1"
         assert details.algorithm == "ed25519-sha256"
+        assert details.dns_diagnostics is None
+
+    def test_verify_details_returns_package_dns_diagnostics_for_dns_lookup(
+        self,
+        signed,
+        public_key,
+    ):
+        diagnostics = DnsVerificationDiagnostics(
+            Domain = "sender.dom",
+            PollyWebBranch = "pw.sender.dom",
+            Selector = "pw1",
+            DkimName = "pw1._domainkey.pw.sender.dom",
+            DnssecRequested = True,
+            Nameservers = ["8.8.8.8"],
+            Queries = [
+                DnsQueryDiagnostic(
+                    Name = "pw.sender.dom",
+                    Type = "DS",
+                    ResponseCode = "NOERROR",
+                    AuthenticData = True,
+                    Answers = ["48567 13 2 ABCDEF"],
+                ),
+                DnsQueryDiagnostic(
+                    Name = "pw1._domainkey.pw.sender.dom",
+                    Type = "TXT",
+                    ResponseCode = "NOERROR",
+                    AuthenticData = True,
+                    Answers = ["v=DKIM1; k=ed25519; p=PUBLICKEY"],
+                ),
+            ],
+        )
+
+        with patch(
+            "pollyweb.msg._resolve_dkim_public_key",
+            return_value = (public_key, "ed25519", diagnostics),
+        ):
+            details = signed.verify_details()
+
+        assert details.dns_lookup_used is True
+        assert details.dns_diagnostics == diagnostics
+
+    def test_verify_details_preserves_package_dns_diagnostics_on_dns_failure(
+        self,
+        signed,
+    ):
+        diagnostics = DnsVerificationDiagnostics(
+            Domain = "sender.dom",
+            PollyWebBranch = "pw.sender.dom",
+            Selector = "pw1",
+            DkimName = "pw1._domainkey.pw.sender.dom",
+            DnssecRequested = True,
+            Nameservers = ["8.8.8.8"],
+            Queries = [
+                DnsQueryDiagnostic(
+                    Name = "pw.sender.dom",
+                    Type = "DS",
+                    ResponseCode = "NOERROR",
+                    AuthenticData = True,
+                    Answers = ["48567 13 2 ABCDEF"],
+                ),
+                DnsQueryDiagnostic(
+                    Name = "pw1._domainkey.pw.sender.dom",
+                    Type = "TXT",
+                    ResponseCode = "NOERROR",
+                    AuthenticData = False,
+                    Answers = ["v=DKIM1; k=ed25519; p=PUBLICKEY"],
+                ),
+            ],
+        )
+
+        with patch(
+            "pollyweb.msg.resolve_dkim_with_dnssec",
+            side_effect = DnsLookupError(
+                "DNSSEC not enabled for pw1._domainkey.pw.sender.dom: cannot trust DKIM public key",
+                diagnostics = diagnostics,
+            ),
+        ):
+            with pytest.raises(pw.MsgValidationError) as exc_info:
+                signed.verify_details()
+
+        assert str(exc_info.value) == (
+            "DNSSEC not enabled for pw1._domainkey.pw.sender.dom: cannot trust DKIM public key"
+        )
+        assert exc_info.value.dns_diagnostics == diagnostics
 
     def test_sign_with_external_signer_returns_signed_msg(self, msg, private_key, public_key):
         signer_calls = []
@@ -1494,6 +1579,41 @@ class TestDomain:
 
         assert signed.Algorithm == ""
         assert "Algorithm" not in signed.to_dict()["Header"]
+
+    def test_rejects_algorithm_for_domain_sender(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match = "Algorithm must be empty for domain senders",
+        ):
+            pw.Msg(
+                From = "sender.dom",
+                To = "recipient.dom",
+                Subject = "Hello@Host",
+                Algorithm = "ed25519-sha256",
+            )
+
+    def test_parse_rejects_algorithm_for_domain_sender(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match = "Algorithm must be empty for domain senders",
+        ):
+            pw.Msg.parse(
+                {
+                    "Header": {
+                        "From": "sender.dom",
+                        "To": "recipient.dom",
+                        "Subject": "Hello@Host",
+                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "Timestamp": "2025-06-01T12:00:00.000Z",
+                        "Schema": "pollyweb.org/MSG:1.0",
+                        "Selector": "pw1",
+                        "Algorithm": "ed25519-sha256",
+                    },
+                    "Body": {},
+                    "Hash": "deadbeef",
+                    "Signature": "ZmFrZQ==",
+                }
+            )
 
     def test_sign_preserves_to_and_subject(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")

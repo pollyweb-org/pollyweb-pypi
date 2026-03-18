@@ -25,7 +25,12 @@ from pollyweb._crypto import (
     signature_algorithm_for_public_key,
     verify_signature,
 )
-from pollyweb.dns import dkim_dns_name, pollyweb_domain, validate_pollyweb_branch, _resolve_with_dnssec
+from pollyweb.dns import (
+    DnsLookupError,
+    DnsVerificationDiagnostics,
+    dkim_dns_name,
+    resolve_dkim_with_dnssec,
+)
 from pollyweb._crypto import signature_algorithm_for_dkim_key_type
 from pollyweb.schema import Schema
 from pollyweb.struct import Struct
@@ -84,7 +89,18 @@ def normalize_domain_name(value: str) -> str:
     return stripped
 
 
-def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
+def _omit_algorithm_for_domain_sender(
+    from_value: str
+) -> bool:
+    """Return whether the wire format should omit ``Header.Algorithm``."""
+
+    return from_value not in ("", "Anonymous") and _is_domain_name(from_value)
+
+
+def _resolve_dkim_public_key(
+    domain: str,
+    selector: str
+) -> tuple[object, str, DnsVerificationDiagnostics]:
     """Fetch the public key from the DKIM DNS TXT record.
 
     Validates the ``pw.{domain}`` PollyWeb branch, then queries
@@ -96,18 +112,15 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
     - no trusted resolver can return a DNSSEC-validated answer, or
     - no supported public key is found in the TXT records.
     """
-    branch = pollyweb_domain(domain)
     dns_name = dkim_dns_name(domain, selector)
     try:
-        try:
-            validate_pollyweb_branch(domain)
-        except ValueError as exc:
-            raise MsgValidationError(
-                f"DNSSEC validation failed for {branch}: cannot trust PollyWeb branch ({exc})"
-            ) from exc
-        answers = _resolve_with_dnssec(
-            dns_name,
-            "TXT")
+        answers, dns_diagnostics = resolve_dkim_with_dnssec(
+            domain,
+            selector)
+    except DnsLookupError as exc:
+        raise MsgValidationError(
+            str(exc),
+            dns_diagnostics = exc.dns_diagnostics) from exc
     except Exception as exc:
         raise MsgValidationError(f"DKIM lookup failed for {dns_name}: {exc}") from exc
 
@@ -127,13 +140,16 @@ def _resolve_dkim_public_key(domain: str, selector: str) -> tuple[object, str]:
         if not key_algorithm or not p:
             continue
         try:
-            return load_dkim_public_key(key_algorithm, p), key_algorithm
+            return load_dkim_public_key(key_algorithm, p), key_algorithm, dns_diagnostics
         except Exception as exc:
             raise MsgValidationError(
-                f"Invalid {key_algorithm} key in DKIM TXT at {dns_name}: {exc}"
+                f"Invalid {key_algorithm} key in DKIM TXT at {dns_name}: {exc}",
+                dns_diagnostics = dns_diagnostics
             ) from exc
 
-    raise MsgValidationError(f"No supported DKIM public key found in TXT at {dns_name}")
+    raise MsgValidationError(
+        f"No supported DKIM public key found in TXT at {dns_name}",
+        dns_diagnostics = dns_diagnostics)
 
 
 def _utc_now() -> str:
@@ -223,6 +239,17 @@ def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
 class MsgValidationError(Exception):
     """Raised when msg validation fails."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        dns_diagnostics: DnsVerificationDiagnostics | None = None
+    ) -> None:
+        """Store an optional DNS verification snapshot with the error."""
+
+        super().__init__(message)
+        self.dns_diagnostics = dns_diagnostics
+
 
 @dataclass(frozen=True)
 class VerificationDetails:
@@ -239,6 +266,7 @@ class VerificationDetails:
     correlation: str
     selector: str
     algorithm: str
+    dns_diagnostics: Optional[DnsVerificationDiagnostics] = None
 
 
 
@@ -334,6 +362,7 @@ class Msg(Struct):
             raise MsgValidationError("To must be a domain string")
         if not isinstance(self.Subject, str):
             raise MsgValidationError("Subject must be a string")
+        from_is_domain = self.From not in ("", "Anonymous") and _is_domain_name(self.From)
         try:
             object.__setattr__(self, "Schema", self.Schema if isinstance(self.Schema, Schema) else Schema(self.Schema))
         except (TypeError, ValueError) as exc:
@@ -343,6 +372,8 @@ class Msg(Struct):
                 object.__setattr__(self, "Algorithm", canonical_signature_algorithm(self.Algorithm))
             except ValueError as exc:
                 raise MsgValidationError(str(exc)) from exc
+        if from_is_domain and self.Algorithm:
+            raise MsgValidationError("Algorithm must be empty for domain senders")
         if not _is_uuid_string(self.Correlation):
             raise MsgValidationError("Correlation must be a UUID")
         if not _is_z_timestamp(self.Timestamp):
@@ -392,7 +423,8 @@ class Msg(Struct):
             )
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
-        msg = replace(self, Algorithm=algorithm)
+        wire_algorithm = "" if _omit_algorithm_for_domain_sender(self.From) else algorithm
+        msg = replace(self, Algorithm=wire_algorithm)
         canonical = msg.canonical()
         hash_hex = hashlib.sha256(canonical).hexdigest()
         try:
@@ -403,7 +435,9 @@ class Msg(Struct):
             )
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
-        return msg.with_signature(signature_bytes)
+        return msg.with_signature(
+            signature_bytes,
+            signature_algorithm = algorithm)
 
     def with_signature(
         self,
@@ -417,15 +451,20 @@ class Msg(Struct):
         signature over ``self.canonical()``.
         """
         self._validate_required_fields(require_selector=False, require_from=True)
-        algorithm = (
+        selected_algorithm = (
             canonical_signature_algorithm(signature_algorithm)
             if signature_algorithm is not None
             else self.Algorithm
         )
-        if not algorithm:
+        if not selected_algorithm:
             raise MsgValidationError("Missing Algorithm")
 
-        msg = replace(self, Algorithm=algorithm)
+        wire_algorithm = (
+            ""
+            if _omit_algorithm_for_domain_sender(self.From)
+            else selected_algorithm
+        )
+        msg = replace(self, Algorithm=wire_algorithm)
         canonical = msg.canonical()
         hash_hex = hashlib.sha256(canonical).hexdigest()
         return replace(
@@ -447,12 +486,15 @@ class Msg(Struct):
         """
         self._validate_required_fields(require_selector=False, require_from=True)
         algorithm = canonical_signature_algorithm(signature_algorithm)
-        msg = replace(self, Algorithm=algorithm)
+        wire_algorithm = "" if _omit_algorithm_for_domain_sender(self.From) else algorithm
+        msg = replace(self, Algorithm=wire_algorithm)
         try:
             signature = signer(msg.canonical())
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
-        return msg.with_signature(signature)
+        return msg.with_signature(
+            signature,
+            signature_algorithm = algorithm)
 
     def sign_detached(
         self,
@@ -539,8 +581,11 @@ class Msg(Struct):
             raise MsgValidationError("Missing Signature")
 
         key_type = None
+        dns_diagnostics = None
         if dns_lookup_used:
-            public_key, key_type = _resolve_dkim_public_key(self.From, self.Selector)
+            public_key, key_type, dns_diagnostics = _resolve_dkim_public_key(
+                self.From,
+                self.Selector)
 
         try:
             sig_bytes = base64.b64decode(self.Signature)
@@ -567,9 +612,13 @@ class Msg(Struct):
                 key_type=key_type,
             )
         except InvalidSignature:
-            raise MsgValidationError("Invalid signature")
+            raise MsgValidationError(
+                "Invalid signature",
+                dns_diagnostics = dns_diagnostics)
         except (TypeError, ValueError) as exc:
-            raise MsgValidationError(str(exc)) from exc
+            raise MsgValidationError(
+                str(exc),
+                dns_diagnostics = dns_diagnostics) from exc
 
         return VerificationDetails(
             schema=str(self.Schema),
@@ -583,6 +632,7 @@ class Msg(Struct):
             correlation=self.Correlation,
             selector=self.Selector,
             algorithm=signature_algorithm or "",
+            dns_diagnostics=dns_diagnostics,
         )
 
     def validate_signature(self, public_key: Optional[object] = None) -> bool:
