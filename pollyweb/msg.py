@@ -383,8 +383,8 @@ class Msg(Struct):
         object.__setattr__(self, "Signature", other.Signature)
 
     def __post_init__(self) -> None:
-        if not _is_domain_name(self.To):
-            raise MsgValidationError("To must be a domain string")
+        if not _is_domain_name(self.To) and not _is_uuid_string(self.To):
+            raise MsgValidationError("To must be a domain string or a UUID")
         if not isinstance(self.Subject, str):
             raise MsgValidationError("Subject must be a string")
         from_is_domain = self.From not in ("", "Anonymous") and _is_domain_name(self.From)
@@ -638,6 +638,8 @@ class Msg(Struct):
                 require_from = self._effective_from() != "Anonymous")
         else:
             self.validate_unsigned()
+        if not _is_domain_name(self.To):
+            raise MsgValidationError("To must be a domain string to send")
         normalized_to = normalize_domain_name(self.To)
         url = f"https://pw.{normalized_to}/inbox"
         body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")

@@ -497,9 +497,29 @@ class TestMsg:
         msg = pw.Msg(To="b.dom", Subject="Ping")
         assert msg.Body == {}
 
-    def test_to_must_be_domain_string(self):
-        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
-            pw.Msg(To="123e4567-e89b-12d3-a456-426614174000", Subject="Ping")
+    def test_to_allows_uuid_string(self):
+        recipient_id = "123e4567-e89b-12d3-a456-426614174000"
+        msg = pw.Msg(To=recipient_id, Subject="Ping")
+
+        assert msg.To == recipient_id
+
+    def test_to_must_be_domain_string_or_uuid(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="To must be a domain string or a UUID",
+        ):
+            pw.Msg(To="not-a-domain", Subject="Ping")
+
+    def test_send_requires_domain_recipient(self):
+        msg = pw.Msg(
+            To="123e4567-e89b-12d3-a456-426614174000",
+            Subject="Ping")
+
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="To must be a domain string to send",
+        ):
+            msg.send()
 
     def test_from_must_be_empty_anonymous_domain_or_uuid(self):
         with pytest.raises(
@@ -983,8 +1003,11 @@ class TestSerialization:
         )
         assert msg.From == "Anonymous"
 
-    def test_from_dict_rejects_non_domain_to(self):
-        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
+    def test_from_dict_rejects_invalid_to(self):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="To must be a domain string or a UUID",
+        ):
             pw.Msg.from_dict(
                 {
                     "Header": {
@@ -1182,7 +1205,10 @@ Body:
                 "Body": {"greeting": "hi"},
             }
         )
-        with pytest.raises(pw.MsgValidationError, match="To must be a domain string"):
+        with pytest.raises(
+            pw.MsgValidationError,
+            match="To must be a domain string or a UUID",
+        ):
             pw.Msg.parse(raw)
 
     def test_parse_rejects_invalid_from(self):

@@ -38,7 +38,7 @@ messages that do not belong to the expected exchange.
 ## Validation order
 
 1. `Schema` must match `pollyweb.org/MSG:1.0`
-2. `To` must be a syntactically valid domain string
+2. `To` must be a syntactically valid domain string or UUID
 3. `Correlation` must be a UUID string
 4. `Timestamp` must be a UTC timestamp ending in `Z`
 5. Required header fields must be non-empty: `From`, `To`, `Subject`, `Correlation`, and `Timestamp`; `Selector` is also required when DNS lookup is needed

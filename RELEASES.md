@@ -3,7 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
-- Added strict top-level wire-field checks to `Msg.parse()` and optional expected-header policies to `Msg.verify()` / `Msg.verify_details()` so clients can enforce echo-style reply contracts directly in the library.
+- Added strict top-level wire-field checks to `Msg.parse()`, optional expected-header policies to `Msg.verify()` / `Msg.verify_details()`, and UUID `To` support for verified inbound replies while keeping `send()` restricted to domain destinations.
 - Removed the public `Msg.sign()` method so only `Domain` and `Wallet` own message signing.
 - Removed the remaining `Msg` signing helpers so message signing now happens only through `Domain.sign()` or `Wallet.sign()`.
 - Made `Wallet.sign()` reject `ID == "Anonymous"` so anonymous wallets remain unsigned-only senders.

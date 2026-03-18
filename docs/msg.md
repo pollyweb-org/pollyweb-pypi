@@ -192,7 +192,8 @@ Signature: Lw7sQp6zkOGyJ+OzGn+B...
 |---|---|
 | `Unsupported schema: X` | `Schema` field is not `pollyweb.org/MSG:1.0` |
 | `Missing From` / `To` / … | A required header field is empty |
-| `To must be a domain string` | `To` is not a syntactically valid domain name |
+| `To must be a domain string or a UUID` | `To` is not a syntactically valid domain name or UUID |
+| `To must be a domain string to send` | `send()` was called on a message whose `To` is a UUID reply target rather than a routable domain |
 | `From must be empty, Anonymous, a domain string, or a UUID` | `From` is not one of the supported sender formats |
 | `Subject must be a string` | `Subject` is not a string value |
 | `Schema must be a string` | `Schema` is not a string value |
