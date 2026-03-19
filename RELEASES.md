@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Added `Msg.parse(..., sync_response=True)` so PollyWeb clients can validate the new `Request`/`Response`/`Meta` synchronous envelope in the library and unwrap the nested `Response` message for verification.
 - Added `Msg.from_outbound()` so clients can build outbound messages from partial top-level or `Header`/`Body` mappings without weakening the strict full-wire contracts on `Msg.parse()` and `Msg.from_dict()`.
 - Reused cached HTTPS connections across repeated `Msg.send()` / `Wallet.send()` / `Domain.send()` calls to the same inbox host, reducing repeated TCP/TLS setup during fixture sweeps and other bursts.
 - Added strict top-level wire-field checks to `Msg.parse()`, optional expected-header policies to `Msg.verify()` / `Msg.verify_details()`, and UUID `To` support for verified inbound replies while keeping `send()` restricted to domain destinations.

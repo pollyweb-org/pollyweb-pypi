@@ -156,7 +156,7 @@ When `Msg()` is called with a single positional value and no `Subject`, it treat
 - [`msg.validate_unsigned() → bool`](msg/validate_unsigned.md) — validates structure and hash without checking the signature.
 - [`msg.validate_signature(public_key=None) → bool`](msg/verify.md) — backward-compatible alias for `verify()`.
 - [`msg.to_dict() → dict`](msg/to_dict.md) — serialises the message to the PollyWeb wire-format mapping.
-- [`Msg.parse(value) → Msg`](msg/parse.md) — parses a message from an existing `Msg`, mapping, EventBridge payload, SNS payload, SQS payload, API Gateway payload, Kinesis payload, JSON text, YAML text, or bytes.
+- [`Msg.parse(value, *, allowed_top_level_fields=None, sync_response=False) → Msg`](msg/parse.md) — parses a message from an existing `Msg`, mapping, EventBridge payload, SNS payload, SQS payload, API Gateway payload, Kinesis payload, JSON text, YAML text, or bytes, and can also unwrap validated synchronous `Request`/`Response`/`Meta` envelopes.
 - [`Msg.load(value) → Msg`](msg/load.md) — backward-compatible alias for `Msg.parse(value)`.
 - [`Msg.from_dict(d) → Msg`](msg/from_dict.md) — constructs a `Msg` from a wire-format dictionary.
 - [`Msg.from_outbound(value) → Msg`](msg/from_outbound.md) — constructs an outbound `Msg` from a partial mapping while defaulting sender, correlation, timestamp, and schema fields the same way as `Msg(...)`.

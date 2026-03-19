@@ -485,6 +485,83 @@ class TestMsg:
             "Expected only Body, Hash, Header, and Signature."
         )
 
+    def test_parse_can_unwrap_sync_response_envelope(self):
+        """Sync-response parse mode should validate and unwrap Response."""
+
+        payload = {
+            "Meta": {
+                "LatencyMs": 12,
+            },
+            "Request": {
+                "Header": {
+                    "From": "Anonymous",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "123e4567-e89b-12d3-a456-426614174111",
+                    "Timestamp": "2026-03-18T16:18:38.410Z",
+                    "Schema": "pollyweb.org/MSG:1.0",
+                },
+                "Body": {},
+            },
+            "Response": {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "123e4567-e89b-12d3-a456-426614174000",
+                    "Timestamp": "2026-03-18T16:18:38.411Z",
+                    "Schema": "pollyweb.org/MSG:1.0",
+                    "Selector": "pw1",
+                },
+                "Body": {
+                    "Echo": "ok",
+                },
+                "Hash": "hash",
+                "Signature": "signature",
+            },
+        }
+
+        parsed = pw.Msg.parse(
+            payload,
+            sync_response = True)
+
+        assert parsed.From == "sender.dom"
+        assert parsed.To == "receiver.dom"
+        assert parsed.Subject == "Hello@Host"
+        assert parsed.Body.Echo == "ok"
+
+    def test_parse_sync_response_rejects_unexpected_wrapper_fields(self):
+        """Sync-response parse mode should validate the response envelope shape."""
+
+        payload = {
+            "Metadata": {},
+            "Request": {},
+            "Response": {
+                "Header": {
+                    "From": "sender.dom",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "123e4567-e89b-12d3-a456-426614174000",
+                    "Timestamp": "2026-03-18T16:18:38.411Z",
+                    "Schema": "pollyweb.org/MSG:1.0",
+                    "Selector": "pw1",
+                },
+                "Body": {},
+                "Hash": "hash",
+                "Signature": "signature",
+            },
+        }
+
+        with pytest.raises(pw.MsgValidationError) as exc_info:
+            pw.Msg.parse(
+                payload,
+                sync_response = True)
+
+        assert str(exc_info.value) == (
+            "Unexpected top-level field(s): Metadata. "
+            "Expected only Meta, Request, and Response."
+        )
+
     def test_verify_details_can_enforce_expected_echo_headers(
         self,
         signed,

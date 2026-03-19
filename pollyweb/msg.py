@@ -45,6 +45,7 @@ _Z_TIMESTAMP_RE = re.compile(
 _POLLYWEB_DOMAIN_ALIAS_SUFFIX = ".dom"
 _POLLYWEB_DOMAIN_CANONICAL_SUFFIX = ".pollyweb.org"
 _DEFAULT_WIRE_FIELDS = frozenset({"Body", "Hash", "Header", "Signature"})
+_DEFAULT_SYNC_RESPONSE_FIELDS = frozenset({"Meta", "Request", "Response"})
 
 
 def _is_domain_name(value: str) -> bool:
@@ -249,6 +250,24 @@ def _extract_outbound_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
         outbound["Body"] = normalized["Body"]
 
     return outbound
+
+
+def _extract_sync_response_mapping(
+    value: Mapping[str, Any]
+) -> Dict[str, Any] | None:
+    """Return a normalized synchronous-response envelope when one is present."""
+
+    normalized = _normalize_wire_value(dict(value))
+    response = normalized.get("Response")
+    if response is None:
+        return None
+
+    if not isinstance(response, Mapping):
+        raise MsgValidationError(
+            "Synchronous response envelope must include a Response mapping."
+        )
+
+    return normalized
 
 
 def _validate_wire_fields(
@@ -701,14 +720,25 @@ class Msg(Struct):
         cls,
         value: Union["Msg", Mapping[str, Any], str, bytes],
         *,
-        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None
+        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None,
+        sync_response: bool = False
     ) -> "Msg":
         """Parse a Msg from another Msg, a wire-format dict, or JSON/YAML text."""
         if isinstance(value, cls):
             return value
 
         if isinstance(value, Mapping):
-            mapping = _extract_msg_mapping(value)
+            if sync_response:
+                sync_mapping = _extract_sync_response_mapping(value)
+                if sync_mapping is None:
+                    mapping = _extract_msg_mapping(value)
+                else:
+                    _validate_wire_fields(
+                        sync_mapping,
+                        allowed_top_level_fields = _DEFAULT_SYNC_RESPONSE_FIELDS)
+                    mapping = _extract_msg_mapping(sync_mapping["Response"])
+            else:
+                mapping = _extract_msg_mapping(value)
             _validate_wire_fields(
                 mapping,
                 allowed_top_level_fields = allowed_top_level_fields)
@@ -726,7 +756,17 @@ class Msg(Struct):
             if isinstance(loaded, cls):
                 return loaded
             if isinstance(loaded, Mapping):
-                mapping = _extract_msg_mapping(loaded)
+                if sync_response:
+                    sync_mapping = _extract_sync_response_mapping(loaded)
+                    if sync_mapping is None:
+                        mapping = _extract_msg_mapping(loaded)
+                    else:
+                        _validate_wire_fields(
+                            sync_mapping,
+                            allowed_top_level_fields = _DEFAULT_SYNC_RESPONSE_FIELDS)
+                        mapping = _extract_msg_mapping(sync_mapping["Response"])
+                else:
+                    mapping = _extract_msg_mapping(loaded)
                 _validate_wire_fields(
                     mapping,
                     allowed_top_level_fields = allowed_top_level_fields)
@@ -740,12 +780,14 @@ class Msg(Struct):
         cls,
         value: Union["Msg", Mapping[str, Any], str, bytes],
         *,
-        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None
+        allowed_top_level_fields: Optional[set[str] | frozenset[str]] = None,
+        sync_response: bool = False
     ) -> "Msg":
         """Backward-compatible alias for :meth:`parse`."""
         return cls.parse(
             value,
-            allowed_top_level_fields = allowed_top_level_fields)
+            allowed_top_level_fields = allowed_top_level_fields,
+            sync_response = sync_response)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Msg":
