@@ -5,7 +5,6 @@ import base64
 import hashlib
 import json
 import re
-import urllib.request
 import uuid
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
@@ -22,6 +21,7 @@ from pollyweb._crypto import (
     signature_algorithm_for_public_key,
     verify_signature,
 )
+from pollyweb._transport import post_json_bytes
 from pollyweb.dns import (
     DnsLookupError,
     DnsVerificationDiagnostics,
@@ -643,14 +643,7 @@ class Msg(Struct):
         normalized_to = normalize_domain_name(self.To)
         url = f"https://pw.{normalized_to}/inbox"
         body = json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        resp = urllib.request.urlopen(req)
-        raw = resp.read()
+        raw = post_json_bytes(url, body)
         # Parse the response body into a structured object rather than raw bytes.
         try:
             data = json.loads(raw)

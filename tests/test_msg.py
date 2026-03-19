@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 import pollyweb as pw
+from pollyweb._transport import close_cached_https_connections
 from pollyweb.dns import DnsLookupError, DnsQueryDiagnostic, DnsVerificationDiagnostics
 from pollyweb.msg import SCHEMA
 
@@ -655,28 +656,26 @@ class TestSign:
 class TestSend:
     def test_posts_to_receiver_inbox_and_returns_response(self, signed, public_key):
         # Simulate a server that replies with a JSON ack dict.
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
+
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
 
         resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(public_key))
         with resolver_patch:
-            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+            with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
                 result = signed.send()
 
         assert result == {"status": "ok"}
-        req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.receiver.pollyweb.org/inbox"
-        assert req.get_method() == "POST"
-        assert req.headers["Content-type"] == "application/json"
-        assert json.loads(req.data.decode("utf-8")) == signed.to_dict()
+        assert captured["url"] == "https://pw.receiver.pollyweb.org/inbox"
+        assert json.loads(captured["body"].decode("utf-8")) == signed.to_dict()
 
     def test_send_verifies_signature_before_posting_domain_targets(self, signed, public_key):
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
-
         resolver_patch, resolver = _mock_dns_resolver(_dkim_dns_answer(public_key))
         with resolver_patch:
-            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+            with patch("pollyweb.msg.post_json_bytes", return_value = b'{"status": "ok"}') as post_json:
                 result = signed.send()
 
         assert result == {"status": "ok"}
@@ -684,7 +683,7 @@ class TestSend:
             call("pw.sender.dom", "DS", raise_on_no_answer=False),
             call("pw1._domainkey.pw.sender.dom", "TXT", raise_on_no_answer=True),
         ]
-        urlopen.assert_called_once()
+        post_json.assert_called_once()
 
     def test_send_expands_dom_alias_in_inbox_url(self):
         keypair = pw.KeyPair()
@@ -700,35 +699,111 @@ class TestSend:
             signature_algorithm = "ed25519-sha256",
             wire_algorithm = "")
 
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
+
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
 
         resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(keypair.PublicKey))
         with resolver_patch:
-            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
+            with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
                 aliased.send()
 
-        req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.receiver.pollyweb.org/inbox"
-        assert json.loads(req.data.decode("utf-8"))["Header"]["To"] == "receiver.dom"
+        assert captured["url"] == "https://pw.receiver.pollyweb.org/inbox"
+        assert json.loads(captured["body"].decode("utf-8"))["Header"]["To"] == "receiver.dom"
 
     def test_send_rejects_invalid_domain_target_signature_before_posting(self, signed):
         tampered = replace(signed, Signature=base64.b64encode(b"bad-signature").decode("ascii"))
 
         resolver_patch, _ = _mock_dns_resolver(_dkim_dns_answer(pw.KeyPair().PublicKey))
         with resolver_patch:
-            with patch("urllib.request.urlopen") as urlopen:
+            with patch("pollyweb.msg.post_json_bytes") as post_json:
                 with pytest.raises(pw.MsgValidationError):
                     tampered.send()
 
-        urlopen.assert_not_called()
+        post_json.assert_not_called()
 
     def test_send_validates_message_before_posting(self, msg):
-        with patch("urllib.request.urlopen") as urlopen:
+        with patch("pollyweb.msg.post_json_bytes") as post_json:
             with pytest.raises(pw.MsgValidationError, match="Missing Hash|Missing Selector"):
                 msg.send()
 
-        urlopen.assert_not_called()
+        post_json.assert_not_called()
+
+    def test_send_reuses_cached_https_connection_for_repeated_posts(self):
+        close_cached_https_connections()
+
+        class FakeResponse:
+            def __init__(
+                self,
+                payload: bytes
+            ):
+                self.status = 200
+                self.reason = "OK"
+                self.headers = {}
+                self.will_close = False
+                self._payload = payload
+
+            def read(self) -> bytes:
+                return self._payload
+
+        class FakeConnection:
+            instances: list["FakeConnection"] = []
+
+            def __init__(
+                self,
+                host,
+                port = None,
+                timeout = None
+            ):
+                self.host = host
+                self.port = port
+                self.timeout = timeout
+                self.requests: list[tuple[str, str, bytes, dict[str, str]]] = []
+                FakeConnection.instances.append(self)
+
+            def request(
+                self,
+                method,
+                path,
+                body = None,
+                headers = None
+            ):
+                self.requests.append((method, path, body, headers or {}))
+
+            def getresponse(self):
+                return FakeResponse(b'{"status":"ok"}')
+
+            def close(self):
+                return None
+
+        msg = pw.Msg(
+            From = "Anonymous",
+            To = "receiver.dom",
+            Subject = "Hello@Host")
+
+        with patch("pollyweb._transport.http.client.HTTPSConnection", FakeConnection):
+            assert msg.send() == {"status": "ok"}
+            assert msg.send() == {"status": "ok"}
+
+        assert len(FakeConnection.instances) == 1
+        assert FakeConnection.instances[0].requests == [
+            (
+                "POST",
+                "/inbox",
+                json.dumps(msg.to_dict(), separators = (",", ":")).encode("utf-8"),
+                {"Content-Type": "application/json"},
+            ),
+            (
+                "POST",
+                "/inbox",
+                json.dumps(msg.to_dict(), separators = (",", ":")).encode("utf-8"),
+                {"Content-Type": "application/json"},
+            ),
+        ]
+        close_cached_https_connections()
 
 
 # ---------------------------------------------------------------------------
@@ -1566,16 +1641,19 @@ class TestWallet:
     def test_anonymous_send_posts_unsigned_message(self):
         wallet = pw.Wallet(ID = "Anonymous")
         msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             result = wallet.send(msg)
 
         assert result == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == "Anonymous"
         assert "Hash" not in payload
@@ -1585,16 +1663,19 @@ class TestWallet:
         wallet = pw.Wallet(
             ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479")
         msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             result = wallet.send(msg)
 
         assert result == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == wallet.ID
         assert payload["Hash"]
@@ -1605,10 +1686,8 @@ class TestWallet:
             From = "Anonymous",
             To = "recipient.dom",
             Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
 
-        with patch("urllib.request.urlopen", return_value = mock_response):
+        with patch("pollyweb.msg.post_json_bytes", return_value = b'{"status": "ok"}'):
             assert msg.send() == {"status": "ok"}
 
     def test_unsigned_uuid_msg_can_send_directly(self):
@@ -1616,14 +1695,17 @@ class TestWallet:
             From = "f47ac10b-58cc-4372-a567-0e02b2c3d479",
             To = "recipient.dom",
             Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             assert msg.send() == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == msg.From
         assert "Hash" not in payload

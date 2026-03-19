@@ -32,40 +32,48 @@ class TestWallet:
         # Anonymous wallets should POST without a signature envelope.
         wallet = pw.Wallet(ID = "Anonymous")
         msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             result = wallet.send(msg)
 
         assert result == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == "Anonymous"
         assert "Hash" not in payload
         assert "Signature" not in payload
+        assert captured["url"] == "https://pw.recipient.pollyweb.org/inbox"
 
     def test_pseudonymous_send_remains_signed(self):
         # UUID-backed wallets should keep signing enabled.
         wallet = pw.Wallet(
             ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479")
         msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             result = wallet.send(msg)
 
         assert result == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == wallet.ID
         assert payload["Hash"]
         assert payload["Signature"]
+        assert captured["url"] == "https://pw.recipient.pollyweb.org/inbox"
 
     def test_unsigned_anonymous_msg_can_send_directly(self):
         # Raw anonymous messages should still be transportable without signing.
@@ -73,10 +81,8 @@ class TestWallet:
             From = "Anonymous",
             To = "recipient.dom",
             Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
 
-        with patch("urllib.request.urlopen", return_value = mock_response):
+        with patch("pollyweb.msg.post_json_bytes", return_value = b'{"status": "ok"}'):
             assert msg.send() == {"status": "ok"}
 
     def test_unsigned_uuid_msg_can_send_directly(self):
@@ -85,15 +91,19 @@ class TestWallet:
             From = "f47ac10b-58cc-4372-a567-0e02b2c3d479",
             To = "recipient.dom",
             Subject = "Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
 
-        with patch("urllib.request.urlopen", return_value = mock_response) as urlopen:
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
+
+        with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
             assert msg.send() == {"status": "ok"}
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
         assert payload["Header"]["From"] == msg.From
         assert "Hash" not in payload
         assert "Signature" not in payload
+        assert captured["url"] == "https://pw.recipient.pollyweb.org/inbox"

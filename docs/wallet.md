@@ -65,5 +65,7 @@ When `wallet.ID` is a UUID, `wallet.send()` signs `msg` then POSTs it to
 `https://pw.{msg.To}/inbox`.
 When `wallet.ID == "Anonymous"`, `wallet.send()` sends an unsigned anonymous
 message instead and does not call `wallet.sign()`.
+Repeated sends reuse the same cached HTTPS connection when the destination host
+keeps it alive, so fixture sweeps and other bursts avoid repeated TLS setup.
 Returns the parsed response body: a `Msg` if the server replies with a PollyWeb message, a `dict` if the response is JSON, or a `str` otherwise.
 Raises `urllib.error.URLError` on network failure.

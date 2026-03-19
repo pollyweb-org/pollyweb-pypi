@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Reused cached HTTPS connections across repeated `Msg.send()` / `Wallet.send()` / `Domain.send()` calls to the same inbox host, reducing repeated TCP/TLS setup during fixture sweeps and other bursts.
 - Added strict top-level wire-field checks to `Msg.parse()`, optional expected-header policies to `Msg.verify()` / `Msg.verify_details()`, and UUID `To` support for verified inbound replies while keeping `send()` restricted to domain destinations.
 - Removed the public `Msg.sign()` method so only `Domain` and `Wallet` own message signing.
 - Removed the remaining `Msg` signing helpers so message signing now happens only through `Domain.sign()` or `Wallet.sign()`.

@@ -185,28 +185,42 @@ class TestDomain:
 
     def test_send_signs_then_posts_and_returns_response(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
+
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
 
         with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
-            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
-                result = domain.send(msg)
+            with patch(
+                "pollyweb.msg._resolve_dkim_public_key",
+                return_value = (domain.KeyPair.PublicKey, "ed25519", None),
+            ):
+                with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
+                    result = domain.send(msg)
 
         assert result == {"status": "ok"}
-        req = urlopen.call_args.args[0]
-        payload = json.loads(req.data.decode("utf-8"))
+        payload = json.loads(captured["body"].decode("utf-8"))
 
-        assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
+        assert captured["url"] == "https://pw.recipient.pollyweb.org/inbox"
         assert "Algorithm" not in payload["Header"]
 
     def test_send_expands_dom_alias_in_inbox_url(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"status": "ok"}'
+        captured: dict[str, object] = {}
+
+        def fake_post(url, body, *, timeout = 10.0):
+            captured["url"] = url
+            captured["body"] = body
+            return b'{"status": "ok"}'
 
         with patch.object(domain, "dns", return_value={"pw1": domain.KeyPair.dkim()}):
-            with patch("urllib.request.urlopen", return_value=mock_response) as urlopen:
-                domain.send(msg)
+            with patch(
+                "pollyweb.msg._resolve_dkim_public_key",
+                return_value = (domain.KeyPair.PublicKey, "ed25519", None),
+            ):
+                with patch("pollyweb.msg.post_json_bytes", side_effect = fake_post):
+                    domain.send(msg)
 
-        req = urlopen.call_args.args[0]
-        assert req.full_url == "https://pw.recipient.pollyweb.org/inbox"
+        assert captured["url"] == "https://pw.recipient.pollyweb.org/inbox"

@@ -1,7 +1,6 @@
 """PollyWeb Domain — signing authority for outbound messages."""
 import hashlib
 from dataclasses import dataclass, replace
-import json
 from typing import Callable, Optional
 import urllib.error
 import urllib.request
@@ -10,7 +9,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorithm_for_dkim_record
 from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
-from pollyweb.msg import Msg, normalize_domain_name
+from pollyweb.msg import Msg
 from pollyweb._crypto import encode_signature, sign_message
 
 MANIFEST_URLS = (
@@ -183,22 +182,4 @@ class Domain:
         Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
         """
         signed = self.sign(msg)
-        normalized_to = normalize_domain_name(signed.To)
-        url = f"https://pw.{normalized_to}/inbox"
-        body = json.dumps(signed.to_dict(), separators=(",", ":")).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        resp = urllib.request.urlopen(req)
-        raw = resp.read()
-        try:
-            data = json.loads(raw)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return raw.decode("utf-8", errors="replace")
-        try:
-            return Msg.parse(data)
-        except (TypeError, KeyError, ValueError):
-            return data
+        return signed.send()

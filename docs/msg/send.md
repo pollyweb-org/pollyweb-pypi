@@ -1,6 +1,6 @@
 # `msg.send()`
 
-Validates the message, POSTs it to `https://pw.{msg.To}/inbox` as JSON, and returns the HTTP response object.
+Validates the message, POSTs it to `https://pw.{msg.To}/inbox` as JSON, and returns the parsed response body.
 
 ```python
 response = signed.send()
@@ -14,6 +14,10 @@ For non-domain senders, `msg.send()` has three paths:
 - `From="Anonymous"` or a UUID with `Hash` and optional `Signature` validates through [`msg.validate_unsigned()`](validate_unsigned.md) because DNS lookup is not available.
 
 The request body is the wire-format JSON produced by [`msg.to_dict()`](to_dict.md).
+
+Repeated sends to the same PollyWeb inbox reuse a cached HTTPS connection when
+the remote server keeps the socket alive, which avoids a fresh TCP/TLS
+handshake for every message in the same process.
 
 Raises [`MsgValidationError`](../msg.md) if the message is not ready to send.
 
