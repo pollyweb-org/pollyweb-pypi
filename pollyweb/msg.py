@@ -234,6 +234,23 @@ def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
+def _extract_outbound_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
+    """Normalize a partial outbound message mapping into flat Msg fields."""
+
+    normalized = _normalize_wire_value(dict(value))
+    header = normalized.get("Header")
+
+    if isinstance(header, Mapping):
+        outbound = dict(header)
+    else:
+        outbound = dict(normalized)
+
+    if "Body" in normalized:
+        outbound["Body"] = normalized["Body"]
+
+    return outbound
+
+
 def _validate_wire_fields(
     mapping: Mapping[str, Any],
     *,
@@ -745,6 +762,39 @@ class Msg(Struct):
             Schema=h["Schema"],
             Hash=d.get("Hash"),
             Signature=d.get("Signature"),
+        )
+
+    @classmethod
+    def from_outbound(
+        cls,
+        value: Mapping[str, Any]
+    ) -> "Msg":
+        """Build an outbound Msg from a partial mapping.
+
+        Accepts either a flat top-level shape such as ``{"To": ..., "Subject": ...,
+        "Body": ...}`` or a wire-style ``{"Header": {...}, "Body": ...}`` envelope.
+        Unlike :meth:`from_dict`, omitted outbound fields such as ``From``,
+        ``Correlation``, ``Timestamp``, and ``Schema`` default the same way they do in
+        the normal ``Msg(...)`` constructor.
+        """
+
+        if not isinstance(value, Mapping):
+            raise TypeError("Msg.from_outbound() expects a mapping")
+
+        outbound = _extract_outbound_mapping(value)
+
+        return cls(
+            To = outbound["To"],
+            Subject = outbound["Subject"],
+            From = outbound.get("From", ""),
+            Selector = outbound.get("Selector", ""),
+            Algorithm = outbound.get("Algorithm", ""),
+            Body = outbound.get("Body", {}),
+            Correlation = outbound.get("Correlation"),
+            Timestamp = outbound.get("Timestamp"),
+            Schema = outbound.get("Schema", SCHEMA),
+            Hash = outbound.get("Hash"),
+            Signature = outbound.get("Signature"),
         )
 
 

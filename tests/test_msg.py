@@ -164,6 +164,73 @@ class TestMsg:
         assert pw.Msg(event) == msg
         assert pw.Msg(event).Body == msg.Body
 
+    def test_from_outbound_accepts_flat_shape_and_defaults_outbound_fields(self):
+        # Outbound builders should accept the simple top-level send shape.
+        msg = pw.Msg.from_outbound(
+            {
+                "To": "receiver.dom",
+                "Subject": "Hello@Host",
+                "Body": {
+                    "greeting": "hi",
+                },
+            }
+        )
+
+        assert msg.To == "receiver.dom"
+        assert msg.Subject == "Hello@Host"
+        assert msg.Body == {"greeting": "hi"}
+        assert msg.From == ""
+        assert msg.Schema == SCHEMA
+        assert uuid.UUID(msg.Correlation)
+        assert msg.Timestamp.endswith("Z")
+
+    def test_from_outbound_accepts_header_body_shape(self):
+        # Outbound builders should also accept the Header/Body envelope shape.
+        msg = pw.Msg.from_outbound(
+            {
+                "Header": {
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Schema": ".MSG",
+                },
+                "Body": {
+                    "greeting": "hi",
+                },
+            }
+        )
+
+        assert msg.To == "receiver.dom"
+        assert msg.Subject == "Hello@Host"
+        assert msg.Body == {"greeting": "hi"}
+        assert msg.Schema == SCHEMA
+
+    def test_from_outbound_preserves_explicit_wire_fields(self):
+        # Explicit outbound metadata should still be honored when provided.
+        msg = pw.Msg.from_outbound(
+            {
+                "Header": {
+                    "From": "Anonymous",
+                    "To": "receiver.dom",
+                    "Subject": "Hello@Host",
+                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "Timestamp": "2025-06-01T12:00:00.000Z",
+                    "Schema": "pollyweb.org/MSG:1.0",
+                },
+                "Body": {
+                    "greeting": "hi",
+                },
+            }
+        )
+
+        assert msg.From == "Anonymous"
+        assert msg.Correlation == "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        assert msg.Timestamp == "2025-06-01T12:00:00.000Z"
+
+    def test_from_outbound_requires_mapping(self):
+        # Outbound helpers should reject non-mapping inputs clearly.
+        with pytest.raises(TypeError, match="Msg.from_outbound\\(\\) expects a mapping"):
+            pw.Msg.from_outbound("not-a-mapping")
+
     def test_get_and_require(self, msg):
         # Field access should still resolve top-level headers first.
         assert msg.get("From") == "sender.dom"

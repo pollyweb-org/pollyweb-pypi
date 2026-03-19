@@ -159,6 +159,7 @@ When `Msg()` is called with a single positional value and no `Subject`, it treat
 - [`Msg.parse(value) → Msg`](msg/parse.md) — parses a message from an existing `Msg`, mapping, EventBridge payload, SNS payload, SQS payload, API Gateway payload, Kinesis payload, JSON text, YAML text, or bytes.
 - [`Msg.load(value) → Msg`](msg/load.md) — backward-compatible alias for `Msg.parse(value)`.
 - [`Msg.from_dict(d) → Msg`](msg/from_dict.md) — constructs a `Msg` from a wire-format dictionary.
+- [`Msg.from_outbound(value) → Msg`](msg/from_outbound.md) — constructs an outbound `Msg` from a partial mapping while defaulting sender, correlation, timestamp, and schema fields the same way as `Msg(...)`.
 
 ---
 
