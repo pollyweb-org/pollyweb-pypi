@@ -137,6 +137,27 @@ class TestDomain:
         assert manifest.About["Domain"] == "any-domain.pollyweb.org"
         assert manifest.About["Title"] == "Any Domain"
 
+    def test_fetch_manifest_infers_about_domain_when_response_uses_name_only(self):
+        """Manifest loading should backfill `About.Domain` from the requested domain."""
+        domain = pw.Domain(Name="origin.dom")
+
+        with patch.object(
+            pw.Msg,
+            "send",
+            return_value = {
+                "Response": {
+                    "About": {
+                        "Name": "any-domain.pollyweb.dom",
+                        "Title": "Any Domain",
+                    }
+                }
+            },
+        ):
+            manifest = domain.fetch_manifest("any-domain.dom")
+
+        assert manifest.About["Domain"] == "any-domain.pollyweb.org"
+        assert manifest.About["Name"] == "any-domain.pollyweb.dom"
+
     def test_fetch_manifest_accepts_direct_manifest_mapping(self):
         """Manifest loading should still accept direct manifest mappings for compatibility."""
         domain = pw.Domain(Name="origin.dom")

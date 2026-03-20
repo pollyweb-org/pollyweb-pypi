@@ -21,7 +21,9 @@ class Domain:
 
     @staticmethod
     def _manifest_payload(
-        response: Any
+        response: Any,
+        *,
+        domain: str
     ) -> Mapping[str, Any]:
         """Extract a manifest mapping from a PollyWeb manifest response."""
 
@@ -38,7 +40,15 @@ class Domain:
         if not isinstance(payload, Mapping):
             raise RuntimeError("Manifest response body must be a mapping")
 
-        return payload
+        normalized = dict(payload)
+        about = normalized.get("About")
+        if isinstance(about, Mapping) and "Domain" not in about:
+            normalized["About"] = {
+                "Domain": domain,
+                **dict(about),
+            }
+
+        return normalized
 
     def fetch_manifest(
         self,
@@ -61,7 +71,12 @@ class Domain:
                 Subject = "Manifest@Domain",
                 Body = {},
             ).send()
-            return Manifest.parse(self._manifest_payload(response))
+            return Manifest.parse(
+                self._manifest_payload(
+                    response,
+                    domain = manifest_domain,
+                )
+            )
         except (
             urllib.error.URLError,
             urllib.error.HTTPError,
