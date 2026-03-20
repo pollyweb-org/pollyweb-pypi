@@ -155,6 +155,26 @@ class TestDomain:
 
         assert manifest.About["Domain"] == "example.pollyweb.org"
 
+    def test_fetch_manifest_normalizes_dom_alias_before_request(self):
+        """Manifest loading should canonicalize `.dom` aliases before sending `Manifest@Domain`."""
+        domain = pw.Domain(Name="origin.dom")
+        outbound: list[pw.Msg] = []
+
+        def fake_send(self):
+            """Capture the outbound request and return a direct manifest mapping."""
+            outbound.append(self)
+            return {
+                "About": {
+                    "Domain": "any-domain.pollyweb.org",
+                    "Title": "Any Domain",
+                }
+            }
+
+        with patch.object(pw.Msg, "send", fake_send):
+            domain.fetch_manifest("any-domain.dom")
+
+        assert outbound[0].To == "any-domain.pollyweb.org"
+
     def test_fetch_manifest_wraps_transport_failures(self):
         """Manifest loading should preserve the requested domain in transport failures."""
         domain = pw.Domain(Name="origin.dom")

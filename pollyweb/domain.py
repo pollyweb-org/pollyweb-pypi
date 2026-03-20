@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pollyweb.dns import fetch_dkim_entries, fetch_dkim_entry, signature_algorithm_for_dkim_record
 from pollyweb.keypair import KeyPair
 from pollyweb.manifest import Manifest, ManifestValidationError
-from pollyweb.msg import Msg
+from pollyweb.msg import Msg, normalize_domain_name
 from pollyweb._crypto import encode_signature, sign_message
 
 @dataclass
@@ -54,9 +54,10 @@ class Domain:
             resolved_domain = domain or self
 
         try:
+            manifest_domain = normalize_domain_name(resolved_domain)
             response = Msg(
                 From = "Anonymous",
-                To = resolved_domain,
+                To = manifest_domain,
                 Subject = "Manifest@Domain",
                 Body = {},
             ).send()
