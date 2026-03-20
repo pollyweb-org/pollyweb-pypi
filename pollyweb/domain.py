@@ -1,7 +1,7 @@
 """PollyWeb Domain — signing authority for outbound messages."""
 import hashlib
 from dataclasses import dataclass, replace
-from typing import Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 import urllib.error
 import urllib.request
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -12,16 +12,6 @@ from pollyweb.manifest import Manifest, ManifestValidationError
 from pollyweb.msg import Msg
 from pollyweb._crypto import encode_signature, sign_message
 
-MANIFEST_URLS = (
-    "https://{domain}/manifest",
-    "https://{domain}/manifest.yaml",
-    "https://{domain}/.well-known/pollyweb/manifest",
-    "https://{domain}/.well-known/pollyweb/manifest.yaml",
-    "https://pw.{domain}/manifest",
-    "https://pw.{domain}/manifest.yaml",
-)
-
-
 @dataclass
 class Domain:
     Name: str
@@ -30,30 +20,31 @@ class Domain:
     Signer: Optional[Callable[[bytes], bytes]] = None
 
     @staticmethod
-    def _fetch_url_bytes(
-        url: str
-    ) -> bytes:
-        """Fetch raw manifest bytes from *url*."""
+    def _manifest_payload(
+        response: Any
+    ) -> Mapping[str, Any]:
+        """Extract a manifest mapping from a PollyWeb manifest response."""
 
-        request = urllib.request.Request(
-            url,
-            headers = {
-                "Accept": "application/json, application/yaml, text/yaml, text/plain"},
-        )
+        if isinstance(response, Msg):
+            payload = response.Body
+        elif isinstance(response, Mapping):
+            if isinstance(response.get("Response"), Mapping):
+                payload = response["Response"]
+            else:
+                payload = response
+        else:
+            raise RuntimeError(f"Unexpected manifest response type: {type(response).__name__}")
 
-        with urllib.request.urlopen(
-            request,
-            timeout = 10,
-        ) as response:
-            return response.read()
+        if not isinstance(payload, Mapping):
+            raise RuntimeError("Manifest response body must be a mapping")
+
+        return payload
 
     def fetch_manifest(
         self,
         domain: str = "",
-        *,
-        manifest_urls: tuple[str, ...] = MANIFEST_URLS
     ) -> Manifest:
-        """Load the manifest for *domain* using PollyWeb URL guesses."""
+        """Load the manifest for *domain* using the built-in `Manifest@Domain` message."""
 
         # Support both ``Domain(name).fetch_manifest()`` and the legacy
         # ``Domain.fetch_manifest(name)`` calling style.
@@ -62,22 +53,21 @@ class Domain:
         else:
             resolved_domain = domain or self
 
-        last_error: Exception | None = None
-
-        for template in manifest_urls:
-            url = template.format(domain = resolved_domain)
-
-            try:
-                raw_manifest = Domain._fetch_url_bytes(url)
-                return Manifest.parse(raw_manifest)
-            except (
-                urllib.error.URLError,
-                urllib.error.HTTPError,
-                ManifestValidationError,
-            ) as err:
-                last_error = err
-
-        raise RuntimeError(f"Unable to load manifest for {resolved_domain}: {last_error}")
+        try:
+            response = Msg(
+                From = "Anonymous",
+                To = resolved_domain,
+                Subject = "Manifest@Domain",
+                Body = {},
+            ).send()
+            return Manifest.parse(self._manifest_payload(response))
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            ManifestValidationError,
+            RuntimeError,
+        ) as err:
+            raise RuntimeError(f"Unable to load manifest for {resolved_domain}: {err}") from err
 
     def _signature_algorithm(self, dkim_record: str) -> str:
         """Return the signing algorithm declared by the sender's DKIM record."""

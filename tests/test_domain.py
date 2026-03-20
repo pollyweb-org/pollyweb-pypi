@@ -1,6 +1,7 @@
 """Tests for pollyweb.domain."""
 
 import json
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,6 +108,65 @@ class TestDomainSign:
 
 
 class TestDomain:
+    def test_fetch_manifest_sends_manifest_message_and_parses_wrapped_response(self):
+        """Manifest loading should use `Manifest@Domain` and unwrap the shared response envelope."""
+        domain = pw.Domain(Name="origin.dom")
+        outbound: list[pw.Msg] = []
+
+        def fake_send(self):
+            """Capture the outbound request and return a wrapped manifest payload."""
+            outbound.append(self)
+            return {
+                "Request": {"Header": {"Subject": "Manifest@Domain"}},
+                "Response": {
+                    "About": {
+                        "Domain": "any-domain.pollyweb.org",
+                        "Title": "Any Domain",
+                    }
+                },
+                "Meta": {"Code": 200},
+            }
+
+        with patch.object(pw.Msg, "send", fake_send):
+            manifest = domain.fetch_manifest("any-domain.pollyweb.org")
+
+        assert len(outbound) == 1
+        assert outbound[0].From == "Anonymous"
+        assert outbound[0].To == "any-domain.pollyweb.org"
+        assert outbound[0].Subject == "Manifest@Domain"
+        assert manifest.About["Domain"] == "any-domain.pollyweb.org"
+        assert manifest.About["Title"] == "Any Domain"
+
+    def test_fetch_manifest_accepts_direct_manifest_mapping(self):
+        """Manifest loading should still accept direct manifest mappings for compatibility."""
+        domain = pw.Domain(Name="origin.dom")
+
+        with patch.object(
+            pw.Msg,
+            "send",
+            return_value = {
+                "About": {
+                    "Domain": "example.pollyweb.org",
+                    "Title": "Example",
+                }
+            },
+        ):
+            manifest = domain.fetch_manifest("example.pollyweb.org")
+
+        assert manifest.About["Domain"] == "example.pollyweb.org"
+
+    def test_fetch_manifest_wraps_transport_failures(self):
+        """Manifest loading should preserve the requested domain in transport failures."""
+        domain = pw.Domain(Name="origin.dom")
+
+        with patch.object(
+            pw.Msg,
+            "send",
+            side_effect = urllib.error.URLError("network down"),
+        ):
+            with pytest.raises(RuntimeError, match = "Unable to load manifest for any-domain.pollyweb.org"):
+                domain.fetch_manifest("any-domain.pollyweb.org")
+
     def test_domain_with_keypair(self):
         pair = pw.KeyPair()
         domain = pw.Domain(Name="origin.dom", KeyPair=pair, Selector="pw1")

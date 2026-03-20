@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Changed `Domain.fetch_manifest()` to load manifests through the shared `Manifest@Domain` inbox message instead of guessing `/manifest` URLs, so callers follow the live PollyWeb transport path.
 - Added `Msg.parse(..., sync_response=True)` so PollyWeb clients can validate the new `Request`/`Response`/`Meta` synchronous envelope in the library and unwrap the nested `Response` message for verification.
 - Added `Msg.from_outbound()` so clients can build outbound messages from partial top-level or `Header`/`Body` mappings without weakening the strict full-wire contracts on `Msg.parse()` and `Msg.from_dict()`.
 - Reused cached HTTPS connections across repeated `Msg.send()` / `Wallet.send()` / `Domain.send()` calls to the same inbox host, reducing repeated TCP/TLS setup during fixture sweeps and other bursts.

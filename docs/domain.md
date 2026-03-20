@@ -58,6 +58,6 @@ reply = domain.send(
 ## Methods
 
 - [`domain.dns() → {selector: txt}`](domain/dns.md) — derives the next DKIM selector and TXT record to publish.
-- `domain.fetch_manifest(domain = "", manifest_urls = MANIFEST_URLS) → Manifest` — loads a PollyWeb manifest by trying the built-in URL guesses. When called on an instance, `domain` defaults to `Domain.Name`.
+- `domain.fetch_manifest(domain = "") → Manifest` — sends an anonymous `Manifest@Domain` request to the target domain and parses the returned manifest payload. When called on an instance, `domain` defaults to `Domain.Name`.
 - [`domain.sign(msg) → Msg`](domain/sign.md) — returns a new message with `From`, derived `Selector`, `Hash`, and `Signature`.
 - [`domain.send(msg) → Msg | dict | str`](domain/send.md) — signs a message, POSTs it to the receiver inbox, and returns the parsed response body (a `Msg`, a `dict`, or a `str`).
