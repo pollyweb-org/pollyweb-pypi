@@ -3,7 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
-- Added `Msg.Buffer` field: an optional buffer domain hint serialized as `Header.Buffer` in the wire format and included in the canonical form so the value is covered by the message hash and signature. `Wallet.send()` now accepts a `buffer` keyword argument that attaches the value before signing.
+- Added `Msg.Notifier` field: an optional notifier domain hint serialized as `Header.Notifier` in the wire format and included in the canonical form so the value is covered by the message hash and signature. `Wallet.send()` now accepts a `notifier` keyword argument that attaches the value before signing.
 - Changed `Domain.fetch_manifest()` to load manifests through the shared `Manifest@Domain` inbox message instead of guessing `/manifest` URLs, so callers follow the live PollyWeb transport path.
 - Added `Msg.parse(..., sync_response=True)` so PollyWeb clients can validate the new `Request`/`Response`/`Meta` synchronous envelope in the library and unwrap the nested `Response` message for verification.
 - Added `Msg.from_outbound()` so clients can build outbound messages from partial top-level or `Header`/`Body` mappings without weakening the strict full-wire contracts on `Msg.parse()` and `Msg.from_dict()`.
