@@ -132,7 +132,7 @@ received.verify(public_key)
 | `Schema` | [`Schema`](schema.md) | — | `pollyweb.org/MSG:1.0` | PollyWeb schema code. Strings are accepted and normalized to canonical schema-code form. |
 | `Hash` | `str \| None` | — | `None` | SHA-256 hex digest of the canonical form. Set by signing helpers such as `domain.sign()` or `wallet.sign()`. |
 | `Signature` | `str \| None` | — | `None` | Base64-encoded signature bytes. Set by signing helpers such as `domain.sign()` or `wallet.sign()`. |
-| `Notifier` | `str \| None` | — | `None` | Optional notifier domain hint (e.g. `any-notifier.pollyweb.org`). When set, serialized as `Header.Notifier` in the wire format and included in the canonical form so the value is covered by the message signature. Pass via `Wallet.send(msg, notifier=...)` or set directly on the message before signing. |
+| `Buffer` | `str \| None` | — | `None` | Optional buffer domain hint (e.g. `any-buffer.pollyweb.org`). When set, serialized as `Header.Buffer` in the wire format and included in the canonical form so the value is covered by the message signature. Pass via `Wallet.send(msg, buffer=...)` or set directly on the message before signing. |
 
 Extra keyword arguments are merged into `Body` at construction time, so `Msg(To="a.com", Subject="X@H", text="hi")` is equivalent to `Msg(To="a.com", Subject="X@H", Body={"text": "hi"})`. When both `Body` and extra kwargs are given, the kwargs are merged on top of `Body`. This shorthand is available only when `Body` is a mapping, not when it is a string.
 

@@ -344,7 +344,7 @@ class Msg(Struct):
     Schema: Schema
     Hash: Optional[str]
     Signature: Optional[str]
-    Notifier: Optional[str]
+    Buffer: Optional[str]
 
     def __init__(
         self,
@@ -360,7 +360,7 @@ class Msg(Struct):
         Schema: "Schema" = SCHEMA,
         Hash: Optional[str] = None,
         Signature: Optional[str] = None,
-        Notifier: Optional[str] = None,
+        Buffer: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a Msg from fields or parse a single raw/enveloped input."""
@@ -400,7 +400,7 @@ class Msg(Struct):
         object.__setattr__(self, "Schema", Schema)
         object.__setattr__(self, "Hash", Hash)
         object.__setattr__(self, "Signature", Signature)
-        object.__setattr__(self, "Notifier", Notifier if isinstance(Notifier, str) and Notifier.strip() else None)
+        object.__setattr__(self, "Buffer", Buffer if isinstance(Buffer, str) and Buffer.strip() else None)
         self.__post_init__()
 
     def _copy_from_msg(
@@ -420,7 +420,7 @@ class Msg(Struct):
         object.__setattr__(self, "Schema", other.Schema)
         object.__setattr__(self, "Hash", other.Hash)
         object.__setattr__(self, "Signature", other.Signature)
-        object.__setattr__(self, "Notifier", other.Notifier)
+        object.__setattr__(self, "Buffer", other.Buffer)
 
     def __post_init__(self) -> None:
         if not _is_domain_name(self.To) and not _is_uuid_string(self.To):
@@ -468,8 +468,8 @@ class Msg(Struct):
             header["Selector"] = self.Selector
         if self.Algorithm:
             header["Algorithm"] = self.Algorithm
-        if self.Notifier:
-            header["Notifier"] = self.Notifier
+        if self.Buffer:
+            header["Buffer"] = self.Buffer
 
         payload = {
             "Body": Struct.unwrap(self.Body),
@@ -710,8 +710,8 @@ class Msg(Struct):
             header["Selector"] = self.Selector
         if self.Algorithm:
             header["Algorithm"] = self.Algorithm
-        if self.Notifier:
-            header["Notifier"] = self.Notifier
+        if self.Buffer:
+            header["Buffer"] = self.Buffer
 
         d: Dict[str, Any] = {
             "Header": header,
@@ -812,7 +812,7 @@ class Msg(Struct):
             Schema=h["Schema"],
             Hash=d.get("Hash"),
             Signature=d.get("Signature"),
-            Notifier=h.get("Notifier"),
+            Buffer=h.get("Buffer"),
         )
 
     @classmethod
@@ -846,7 +846,7 @@ class Msg(Struct):
             Schema = outbound.get("Schema", SCHEMA),
             Hash = outbound.get("Hash"),
             Signature = outbound.get("Signature"),
-            Notifier = outbound.get("Notifier"),
+            Buffer = outbound.get("Buffer"),
         )
 
 
