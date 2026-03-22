@@ -54,11 +54,18 @@ class Wallet:
             Hash = hashlib.sha256(canonical).hexdigest(),
             Signature = encode_signature(signature))
 
-    def send(self, msg: Msg):
+    def send(self, msg: Msg, *, notifier: str | None = None):
         """Sign *msg*, POST it to the receiver inbox, and return the parsed response.
+
+        When *notifier* is provided it is attached to ``Header.Notifier`` in the
+        outgoing wire payload before signing so the notifier value is covered by
+        the message hash and signature.
 
         Returns a ``Msg``, ``dict``, or ``str`` — see ``Msg.send()`` for details.
         """
+        if notifier is not None:
+            msg = replace(msg, Notifier=notifier)
+
         if self.ID == "Anonymous":
             anonymous = replace(
                 msg,
