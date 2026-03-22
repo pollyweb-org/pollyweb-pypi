@@ -101,44 +101,40 @@ class _HttpsConnectionPool:
         if parsed.query:
             path = f"{path}?{parsed.query}"
 
-        for attempt in range(2):
-            connection = self._get_connection(
-                host,
-                port,
-                timeout = timeout)
+        connection = self._get_connection(
+            host,
+            port,
+            timeout = timeout)
 
-            try:
-                connection.request(
-                    "POST",
-                    path,
-                    body = body,
-                    headers = request_headers)
-                response = connection.getresponse()
-                raw = response.read()
+        try:
+            connection.request(
+                "POST",
+                path,
+                body = body,
+                headers = request_headers)
+            response = connection.getresponse()
+            raw = response.read()
 
-                # Drop sockets the server marked for closure so the next send
-                # starts with a fresh connection instead of reusing a dead one.
-                if response.will_close:
-                    self._drop_connection(host, port)
-
-                if response.status >= 400:
-                    raise urllib.error.HTTPError(
-                        url,
-                        response.status,
-                        response.reason,
-                        response.headers,
-                        io.BytesIO(raw))
-
-                return raw
-            except (
-                OSError,
-                http.client.HTTPException,
-            ):
+            # Drop sockets the server marked for closure so the next send
+            # starts with a fresh connection instead of reusing a dead one.
+            if response.will_close:
                 self._drop_connection(host, port)
-                if attempt == 1:
-                    raise
 
-        raise RuntimeError("Unreachable HTTPS transport retry state")
+            if response.status >= 400:
+                raise urllib.error.HTTPError(
+                    url,
+                    response.status,
+                    response.reason,
+                    response.headers,
+                    io.BytesIO(raw))
+
+            return raw
+        except (
+            OSError,
+            http.client.HTTPException,
+        ):
+            self._drop_connection(host, port)
+            raise
 
 
 _HTTPS_CONNECTION_POOL = _HttpsConnectionPool()
