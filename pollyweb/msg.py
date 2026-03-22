@@ -232,7 +232,20 @@ def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
         if embedded_mapping is not None:
             return embedded_mapping
 
-    return normalized
+    # PollyWeb inbox handler invocations (any-domain Step Functions pipeline) pass
+    # the full pipeline event to downstream Lambdas so they can access shared state.
+    # The PollyWeb wire message sits under the "raw_payload" key in that envelope.
+    raw_payload = normalized.get("raw_payload")
+    if raw_payload is not None:
+        embedded_mapping = _parse_embedded_mapping(raw_payload)
+        if embedded_mapping is not None:
+            return embedded_mapping
+
+    raise TypeError(
+        "Cannot extract a PollyWeb message from the supplied mapping: "
+        "no Header found at the top level or in any supported envelope field "
+        "(detail, Message, Records, body, raw_payload)."
+    )
 
 
 def _extract_outbound_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:

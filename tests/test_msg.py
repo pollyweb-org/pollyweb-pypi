@@ -1702,6 +1702,33 @@ class TestSchema:
         raw = json.dumps(msg.to_dict())
         assert pw.Msg.load(raw) == msg
 
+    def test_parse_any_domain_inbox_event_with_raw_payload_mapping(self, msg):
+        # any-domain passes the full Step Functions pipeline event to downstream
+        # handler Lambdas so they can access shared state; the PollyWeb message
+        # lives under "raw_payload".
+        event = {
+            "raw_payload": msg.to_dict(),
+            "dedup_key": "some-correlation#some-timestamp",
+            "cold_ms": 0,
+        }
+
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_any_domain_inbox_event_with_raw_payload_json_string(self, msg):
+        # raw_payload may also arrive as a serialised JSON string inside the event.
+        event = {
+            "raw_payload": json.dumps(msg.to_dict()),
+            "dedup_key": "some-correlation#some-timestamp",
+        }
+
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_raises_clear_error_when_no_header_found(self):
+        # An unrecognised mapping with no Header and no known envelope field
+        # must raise TypeError naming the supported envelope fields.
+        with pytest.raises(TypeError, match="raw_payload"):
+            pw.Msg.parse({"unknown_field": "value", "also_unknown": 42})
+
     def test_parse_rejects_non_mapping_payload(self):
         with pytest.raises(TypeError, match="mapping"):
             pw.Msg.parse("[]")

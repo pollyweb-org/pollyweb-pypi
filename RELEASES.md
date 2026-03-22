@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Extended `Msg.parse()` to unwrap PollyWeb inbox pipeline events: when any-domain's Step Functions pipeline invokes a handler Lambda it passes the full pipeline state, with the PollyWeb message under `raw_payload`. `Msg.parse()` now probes `raw_payload` alongside the existing EventBridge (`detail`), SNS (`Message`), SQS (`Records[].body`), Kinesis (`Records[].kinesis.data`), and API Gateway (`body`) envelope fields. When no `Header` is found at any level, a `TypeError` is raised naming all supported envelope fields instead of crashing with an opaque `KeyError`.
 - Added `Msg.Notifier` field: an optional notifier domain hint serialized as `Header.Notifier` in the wire format and included in the canonical form so the value is covered by the message hash and signature. `Wallet.send()` now accepts a `notifier` keyword argument that attaches the value before signing.
 - Changed `Domain.fetch_manifest()` to load manifests through the shared `Manifest@Domain` inbox message instead of guessing `/manifest` URLs, so callers follow the live PollyWeb transport path.
 - Added `Msg.parse(..., sync_response=True)` so PollyWeb clients can validate the new `Request`/`Response`/`Meta` synchronous envelope in the library and unwrap the nested `Response` message for verification.
