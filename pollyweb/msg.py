@@ -345,6 +345,7 @@ class Msg(Struct):
     Hash: Optional[str]
     Signature: Optional[str]
     Notifier: Optional[str]
+    Channel: Optional[str]
 
     def __init__(
         self,
@@ -361,6 +362,7 @@ class Msg(Struct):
         Hash: Optional[str] = None,
         Signature: Optional[str] = None,
         Notifier: Optional[str] = None,
+        Channel: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a Msg from fields or parse a single raw/enveloped input."""
@@ -401,6 +403,7 @@ class Msg(Struct):
         object.__setattr__(self, "Hash", Hash)
         object.__setattr__(self, "Signature", Signature)
         object.__setattr__(self, "Notifier", Notifier if isinstance(Notifier, str) and Notifier.strip() else None)
+        object.__setattr__(self, "Channel", Channel if isinstance(Channel, str) and Channel.strip() else None)
         self.__post_init__()
 
     def _copy_from_msg(
@@ -421,6 +424,7 @@ class Msg(Struct):
         object.__setattr__(self, "Hash", other.Hash)
         object.__setattr__(self, "Signature", other.Signature)
         object.__setattr__(self, "Notifier", other.Notifier)
+        object.__setattr__(self, "Channel", other.Channel)
 
     def __post_init__(self) -> None:
         if not _is_domain_name(self.To) and not _is_uuid_string(self.To):
@@ -470,6 +474,8 @@ class Msg(Struct):
             header["Algorithm"] = self.Algorithm
         if self.Notifier:
             header["Notifier"] = self.Notifier
+        if self.Channel:
+            header["Channel"] = self.Channel
 
         payload = {
             "Body": Struct.unwrap(self.Body),
@@ -712,6 +718,8 @@ class Msg(Struct):
             header["Algorithm"] = self.Algorithm
         if self.Notifier:
             header["Notifier"] = self.Notifier
+        if self.Channel:
+            header["Channel"] = self.Channel
 
         d: Dict[str, Any] = {
             "Header": header,
