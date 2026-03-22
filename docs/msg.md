@@ -133,6 +133,7 @@ received.verify(public_key)
 | `Hash` | `str \| None` | — | `None` | SHA-256 hex digest of the canonical form. Set by signing helpers such as `domain.sign()` or `wallet.sign()`. |
 | `Signature` | `str \| None` | — | `None` | Base64-encoded signature bytes. Set by signing helpers such as `domain.sign()` or `wallet.sign()`. |
 | `Notifier` | `str \| None` | — | `None` | Optional notifier domain hint (e.g. `any-notifier.pollyweb.org`). When set, serialized as `Header.Notifier` in the wire format and included in the canonical form so the value is covered by the message signature. Pass via `Wallet.send(msg, notifier=...)` or set directly on the message before signing. |
+| `Channel` | `str \| None` | — | `None` | Optional async response channel UUID. When a Notifier is configured, the sender obtains this UUID from the Notifier before signing the message. It is serialized as `Header.Channel` in the wire format and included in the canonical form so it is covered by the message signature. The Notifier uses this UUID to route the final response back to the sender over an AppSync WebSocket when the server replies with `Meta.Code: 202`. |
 
 Extra keyword arguments are merged into `Body` at construction time, so `Msg(To="a.com", Subject="X@H", text="hi")` is equivalent to `Msg(To="a.com", Subject="X@H", Body={"text": "hi"})`. When both `Body` and extra kwargs are given, the kwargs are merged on top of `Body`. This shorthand is available only when `Body` is a mapping, not when it is a string.
 
@@ -177,6 +178,8 @@ Header:
   Timestamp: 2025-06-01T12:00:00.000Z
   Selector: pw1
   Algorithm: ed25519-sha256
+  Notifier: any-notifier.pollyweb.org   # optional
+  Channel: a1b2c3d4-...                 # optional, set when Notifier is present
 
 Body: { ... }
 
