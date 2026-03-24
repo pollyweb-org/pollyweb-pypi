@@ -78,11 +78,15 @@ jobs:
           skip-existing: true
 
       - name: Trigger pollyweb-aws layer rollout
-        if: ${{ success() && secrets.POLLYWEB_AWS_DISPATCH_TOKEN != '' }}
         env:
           DISPATCH_TOKEN: ${{ secrets.POLLYWEB_AWS_DISPATCH_TOKEN }}
           RELEASE_VERSION: ${{ steps.build.outputs.version }}
         run: |
+          if [ -z "${DISPATCH_TOKEN}" ]; then
+            echo "POLLYWEB_AWS_DISPATCH_TOKEN is not configured; skipping pollyweb-aws dispatch."
+            exit 0
+          fi
+
           curl --fail-with-body \
             --request POST \
             --url https://api.github.com/repos/pollyweb-org/pollyweb-aws/dispatches \

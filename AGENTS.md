@@ -83,6 +83,7 @@ git config core.hooksPath .githooks
 ```
 
 ## Learnings
+- GitHub Actions workflow conditions for optional follow-up steps are safer when they avoid direct `secrets.*` checks in step-level `if` expressions; pass the secret through `env` and skip inside the shell so the workflow still schedules and a successful publish does not fail at parse time.
 - Keep incoming and outgoing `Msg` construction separate in this package: strict full-wire parsers like `Msg.parse()` / `Msg.from_dict()` should continue requiring serialized headers such as `Correlation` and `Timestamp`, while client-side outbound builders belong in a dedicated helper such as `Msg.from_outbound()`.
 - For DNSSEC-backed DKIM verification in this package, do not trust only the local resolver's `AD` flag; if the system resolver returns unsigned answers for a signed record, retry against explicit validating resolvers before rejecting the domain.
 - Keep `RELEASES.md` as the repo's human-readable version history, and update it alongside any user-visible feature or release change so the shipped feature set stays easy to audit.
