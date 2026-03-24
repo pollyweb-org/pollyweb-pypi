@@ -12,6 +12,7 @@ Parses a [`Msg`](../msg.md) from any of the supported input forms:
 - an AWS SQS event whose `Records[*].body` contains a PollyWeb message mapping or JSON/YAML string
 - an AWS API Gateway proxy event whose `body` contains a PollyWeb message as JSON/YAML, with optional `isBase64Encoded`
 - an AWS Kinesis event whose `Records[*].kinesis.data` contains a base64-encoded PollyWeb message as JSON/YAML
+- a Lambda or Step Functions wrapper whose embedded message is carried in `payload`, `Payload`, `message`, or `raw_payload`
 
 ```python
 received = pw.Msg.parse(raw_message)
@@ -23,7 +24,7 @@ received = pw.Msg.parse(sync_payload, sync_response = True)
 received = pw.Msg(raw_message)
 ```
 
-Mappings are normalized into JSON-wire-compatible scalar values before being passed to [`Msg.from_dict()`](from_dict.md). If the mapping looks like an AWS EventBridge, SNS, SQS, API Gateway, or Kinesis envelope, `parse()` automatically unwraps `detail`, `Message`, `Records[*].body`, `body`, or `Records[*].kinesis.data` and parses the embedded PollyWeb message. API Gateway payloads with `isBase64Encoded: true` and Kinesis record payloads are base64-decoded before parsing.
+Mappings are normalized into JSON-wire-compatible scalar values before being passed to [`Msg.from_dict()`](from_dict.md). If the mapping looks like an AWS EventBridge, SNS, SQS, API Gateway, Kinesis, Lambda, or Step Functions envelope, `parse()` automatically unwraps `detail`, `Message`, `message`, `payload`, `Payload`, `Records[*].body`, `body`, `Records[*].kinesis.data`, or `raw_payload` and parses the embedded PollyWeb message recursively. API Gateway payloads with `isBase64Encoded: true` and Kinesis record payloads are base64-decoded before parsing.
 
 When `sync_response=True`, `parse()` accepts either a plain PollyWeb message or a synchronous PollyWeb response envelope. If the outer payload contains `Response`, PollyWeb treats it as a wrapped sync response, requires exactly `Request`, `Response`, and `Meta` top-level fields, then unwraps and parses the nested `Response` message.
 

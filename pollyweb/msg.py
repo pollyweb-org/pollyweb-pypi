@@ -45,6 +45,15 @@ _POLLYWEB_DOMAIN_ALIAS_SUFFIX = ".dom"
 _POLLYWEB_DOMAIN_CANONICAL_SUFFIX = ".pollyweb.org"
 _DEFAULT_WIRE_FIELDS = frozenset({"Body", "Hash", "Header", "Signature"})
 _DEFAULT_SYNC_RESPONSE_FIELDS = frozenset({"Meta", "Request", "Response"})
+_SUPPORTED_EMBEDDED_MESSAGE_FIELDS = (
+    "detail",
+    "Message",
+    "message",
+    "payload",
+    "Payload",
+    "body",
+    "raw_payload",
+)
 
 
 def _is_domain_name(value: str) -> bool:
@@ -181,61 +190,66 @@ def _extract_msg_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
             if "Header" in embedded_mapping:
                 return embedded_mapping
 
+            return _extract_from_supported_envelope_fields(embedded_mapping)
+
+        return None
+
+    def _extract_from_supported_envelope_fields(
+        normalized: Mapping[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Probe the known wrapper fields recursively for an embedded message."""
+
+        for field_name in _SUPPORTED_EMBEDDED_MESSAGE_FIELDS:
+            embedded_mapping = _parse_embedded_mapping(normalized.get(field_name))
+            if embedded_mapping is not None:
+                return embedded_mapping
+
+        records = normalized.get("Records")
+        if isinstance(records, list):
+            for record in records:
+                if not isinstance(record, Mapping):
+                    continue
+
+                embedded_mapping = _extract_from_supported_envelope_fields(
+                    _normalize_wire_value(dict(record))
+                )
+                if embedded_mapping is not None:
+                    return embedded_mapping
+
+                kinesis = record.get("kinesis")
+                if isinstance(kinesis, Mapping):
+                    data = kinesis.get("data")
+                    if isinstance(data, str):
+                        try:
+                            data = base64.b64decode(data).decode("utf-8")
+                        except Exception:
+                            data = None
+
+                        embedded_mapping = _parse_embedded_mapping(data)
+                        if embedded_mapping is not None:
+                            return embedded_mapping
+
         return None
 
     normalized = _normalize_wire_value(dict(value))
     if "Header" in normalized:
         return normalized
 
-    for field_name in ("detail", "Message"):
-        embedded_mapping = _parse_embedded_mapping(normalized.get(field_name))
-        if embedded_mapping is not None:
-            return embedded_mapping
+    if normalized.get("isBase64Encoded") is True and isinstance(normalized.get("body"), str):
+        normalized = dict(normalized)
+        try:
+            normalized["body"] = base64.b64decode(normalized["body"]).decode("utf-8")
+        except Exception:
+            normalized["body"] = None
 
-    records = normalized.get("Records")
-    if isinstance(records, list):
-        for record in records:
-            if not isinstance(record, Mapping):
-                continue
-            embedded_mapping = _parse_embedded_mapping(record.get("body"))
-            if embedded_mapping is not None:
-                return embedded_mapping
-            kinesis = record.get("kinesis")
-            if isinstance(kinesis, Mapping):
-                data = kinesis.get("data")
-                if isinstance(data, str):
-                    try:
-                        data = base64.b64decode(data).decode("utf-8")
-                    except Exception:
-                        data = None
-                    embedded_mapping = _parse_embedded_mapping(data)
-                    if embedded_mapping is not None:
-                        return embedded_mapping
-
-    body = normalized.get("body")
-    if body is not None:
-        if normalized.get("isBase64Encoded") is True and isinstance(body, str):
-            try:
-                body = base64.b64decode(body).decode("utf-8")
-            except Exception:
-                body = None
-        embedded_mapping = _parse_embedded_mapping(body)
-        if embedded_mapping is not None:
-            return embedded_mapping
-
-    # PollyWeb inbox handler invocations (any-domain Step Functions pipeline) pass
-    # the full pipeline event to downstream Lambdas so they can access shared state.
-    # The PollyWeb wire message sits under the "raw_payload" key in that envelope.
-    raw_payload = normalized.get("raw_payload")
-    if raw_payload is not None:
-        embedded_mapping = _parse_embedded_mapping(raw_payload)
-        if embedded_mapping is not None:
-            return embedded_mapping
+    embedded_mapping = _extract_from_supported_envelope_fields(normalized)
+    if embedded_mapping is not None:
+        return embedded_mapping
 
     raise TypeError(
         "Cannot extract a PollyWeb message from the supplied mapping: "
         "no Header found at the top level or in any supported envelope field "
-        "(detail, Message, Records, body, raw_payload)."
+        "(detail, Message, message, payload, Payload, Records, body, raw_payload)."
     )
 
 

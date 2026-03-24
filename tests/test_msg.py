@@ -1667,10 +1667,40 @@ class TestSchema:
 
         assert pw.Msg.parse(event) == msg
 
+    def test_parse_lambda_payload_wrapper_with_payload_mapping(self, msg):
+        event = {
+            "payload": msg.to_dict(),
+            "requestContext": {
+                "requestId": "lambda-request",
+            },
+        }
+
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_stepfunctions_lambda_wrapper_with_capital_payload(self, msg):
+        event = {
+            "ExecutedVersion": "$LATEST",
+            "Payload": msg.to_dict(),
+            "SdkHttpMetadata": {
+                "HttpStatusCode": 200,
+            },
+        }
+
+        assert pw.Msg.parse(event) == msg
+
+    def test_parse_nested_lambda_eventbridge_wrapper(self, msg):
+        event = {
+            "payload": {
+                "detail": json.dumps(msg.to_dict()),
+            }
+        }
+
+        assert pw.Msg.parse(event) == msg
+
     def test_parse_raises_clear_error_when_no_header_found(self):
         # An unrecognised mapping with no Header and no known envelope field
         # must raise TypeError naming the supported envelope fields.
-        with pytest.raises(TypeError, match="raw_payload"):
+        with pytest.raises(TypeError, match="payload"):
             pw.Msg.parse({"unknown_field": "value", "also_unknown": 42})
 
     def test_parse_rejects_non_mapping_payload(self):

@@ -3,6 +3,7 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Extended `Msg.parse()` again so `pw.Msg(event)` can unwrap common Lambda and Step Functions payload wrappers recursively. In addition to the existing EventBridge, SNS, SQS, API Gateway, Kinesis, and `raw_payload` support, it now probes `payload`, `Payload`, and `message`, so downstream handlers can normalize more AWS event shapes through one entrypoint.
 - Removed `Msg.Header.Algorithm`, `Msg.Header.Notifier`, and `Msg.Header.Channel` from the wire format. `Msg`, `Wallet`, and the related docs/tests now treat signature algorithm selection as inferred verification state instead of serialized message state.
 - Extended `Msg.parse()` to unwrap PollyWeb inbox pipeline events: when any-domain's Step Functions pipeline invokes a handler Lambda it passes the full pipeline state, with the PollyWeb message under `raw_payload`. `Msg.parse()` now probes `raw_payload` alongside the existing EventBridge (`detail`), SNS (`Message`), SQS (`Records[].body`), Kinesis (`Records[].kinesis.data`), and API Gateway (`body`) envelope fields. When no `Header` is found at any level, a `TypeError` is raised naming all supported envelope fields instead of crashing with an opaque `KeyError`.
 - Changed `Domain.fetch_manifest()` to load manifests through the shared `Manifest@Domain` inbox message instead of guessing `/manifest` URLs, so callers follow the live PollyWeb transport path.
