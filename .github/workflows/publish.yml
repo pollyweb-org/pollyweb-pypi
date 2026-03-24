@@ -53,6 +53,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build distribution artifacts
+        id: build
         run: |
           python -m pip install --upgrade pip build
           BASE_TAG="$(git describe --tags --abbrev=0 --match 'v*')"
@@ -67,6 +68,7 @@ jobs:
             VERSION="${MAJOR}.${MINOR}.$((PATCH + DISTANCE))"
           fi
           echo "Publishing version ${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           export SETUPTOOLS_SCM_PRETEND_VERSION="$VERSION"
           python -m build
 
@@ -74,3 +76,26 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+      - name: Trigger pollyweb-aws layer rollout
+        if: ${{ success() && secrets.POLLYWEB_AWS_DISPATCH_TOKEN != '' }}
+        env:
+          DISPATCH_TOKEN: ${{ secrets.POLLYWEB_AWS_DISPATCH_TOKEN }}
+          RELEASE_VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          curl --fail-with-body \
+            --request POST \
+            --url https://api.github.com/repos/pollyweb-org/pollyweb-aws/dispatches \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${DISPATCH_TOKEN}" \
+            --data @- <<EOF
+          {
+            "event_type": "pollyweb_pypi_published",
+            "client_payload": {
+              "package": "pollyweb",
+              "version": "${RELEASE_VERSION}",
+              "source_repository": "${GITHUB_REPOSITORY}",
+              "source_sha": "${GITHUB_SHA}"
+            }
+          }
+          EOF
