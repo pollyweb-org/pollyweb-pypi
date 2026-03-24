@@ -41,7 +41,6 @@ Missing outbound fields default the same way they do in the normal
 
 - `From` defaults to `""`
 - `Selector` defaults to `""`
-- `Algorithm` defaults to `""`
 - `Body` defaults to `{}`
 - `Correlation` defaults to a new UUID
 - `Timestamp` defaults to the current UTC time

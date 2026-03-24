@@ -3,8 +3,8 @@
 This file tracks the user-visible features shipped in each published `pollyweb` version.
 
 ## Unreleased
+- Removed `Msg.Header.Algorithm`, `Msg.Header.Notifier`, and `Msg.Header.Channel` from the wire format. `Msg`, `Wallet`, and the related docs/tests now treat signature algorithm selection as inferred verification state instead of serialized message state.
 - Extended `Msg.parse()` to unwrap PollyWeb inbox pipeline events: when any-domain's Step Functions pipeline invokes a handler Lambda it passes the full pipeline state, with the PollyWeb message under `raw_payload`. `Msg.parse()` now probes `raw_payload` alongside the existing EventBridge (`detail`), SNS (`Message`), SQS (`Records[].body`), Kinesis (`Records[].kinesis.data`), and API Gateway (`body`) envelope fields. When no `Header` is found at any level, a `TypeError` is raised naming all supported envelope fields instead of crashing with an opaque `KeyError`.
-- Added `Msg.Notifier` field: an optional notifier domain hint serialized as `Header.Notifier` in the wire format and included in the canonical form so the value is covered by the message hash and signature. `Wallet.send()` now accepts a `notifier` keyword argument that attaches the value before signing.
 - Changed `Domain.fetch_manifest()` to load manifests through the shared `Manifest@Domain` inbox message instead of guessing `/manifest` URLs, so callers follow the live PollyWeb transport path.
 - Added `Msg.parse(..., sync_response=True)` so PollyWeb clients can validate the new `Request`/`Response`/`Meta` synchronous envelope in the library and unwrap the nested `Response` message for verification.
 - Added `Msg.from_outbound()` so clients can build outbound messages from partial top-level or `Header`/`Body` mappings without weakening the strict full-wire contracts on `Msg.parse()` and `Msg.from_dict()`.
@@ -13,9 +13,7 @@ This file tracks the user-visible features shipped in each published `pollyweb` 
 - Removed the public `Msg.sign()` method so only `Domain` and `Wallet` own message signing.
 - Removed the remaining `Msg` signing helpers so message signing now happens only through `Domain.sign()` or `Wallet.sign()`.
 - Made `Wallet.sign()` reject `ID == "Anonymous"` so anonymous wallets remain unsigned-only senders.
-- Added an explicit parser-level rejection for domain-originated messages that serialize `Header.Algorithm`; domain receivers must derive the algorithm from DKIM instead.
 - Made DNSSEC-backed DKIM verification fall back to trusted validating resolvers when the local resolver returns unsigned answers without the `AD` flag.
-- Stopped serializing `Header.Algorithm` on domain-signed messages; receivers now infer the algorithm from DKIM for the selected selector while still rejecting mismatched explicit headers.
 - Changed anonymous `Wallet.send()` calls to send unsigned messages by default, while UUID-backed wallets still sign.
 - Allowed direct `Msg.send()` calls with a UUID `From` and no `Hash` or `Signature`, so pseudonymous wallets can also send explicitly unsigned messages when callers strip signatures before transport.
 - Clarified send and domain-normalization documentation for the current development head.

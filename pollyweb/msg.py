@@ -14,7 +14,6 @@ from cryptography.exceptions import InvalidSignature
 import yaml
 
 from pollyweb._crypto import (
-    canonical_signature_algorithm,
     decode_ascii_envelope,
     encode_dkim_public_key,
     load_dkim_public_key,
@@ -86,14 +85,6 @@ def normalize_domain_name(value: str) -> str:
             + _POLLYWEB_DOMAIN_CANONICAL_SUFFIX
         )
     return stripped
-
-
-def _omit_algorithm_for_domain_sender(
-    from_value: str
-) -> bool:
-    """Return whether the wire format should omit ``Header.Algorithm``."""
-
-    return from_value not in ("", "Anonymous") and _is_domain_name(from_value)
 
 
 def _resolve_dkim_public_key(
@@ -350,15 +341,12 @@ class Msg(Struct):
     Subject: str
     From: str
     Selector: str
-    Algorithm: str
     Body: Any
     Correlation: str
     Timestamp: str
     Schema: Schema
     Hash: Optional[str]
     Signature: Optional[str]
-    Notifier: Optional[str]
-    Channel: Optional[str]
 
     def __init__(
         self,
@@ -367,15 +355,12 @@ class Msg(Struct):
         *,
         From: str = "",
         Selector: str = "",
-        Algorithm: str = "",
         Body: Any = None,
         Correlation: str = None,
         Timestamp: str = None,
         Schema: "Schema" = SCHEMA,
         Hash: Optional[str] = None,
         Signature: Optional[str] = None,
-        Notifier: Optional[str] = None,
-        Channel: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a Msg from fields or parse a single raw/enveloped input."""
@@ -408,15 +393,12 @@ class Msg(Struct):
         object.__setattr__(self, "Subject", Subject)
         object.__setattr__(self, "From", From)
         object.__setattr__(self, "Selector", Selector)
-        object.__setattr__(self, "Algorithm", Algorithm)
         object.__setattr__(self, "Body", Struct.wrap(merged_body))
         object.__setattr__(self, "Correlation", Correlation if Correlation is not None else str(uuid.uuid4()))
         object.__setattr__(self, "Timestamp", Timestamp if Timestamp is not None else _utc_now())
         object.__setattr__(self, "Schema", Schema)
         object.__setattr__(self, "Hash", Hash)
         object.__setattr__(self, "Signature", Signature)
-        object.__setattr__(self, "Notifier", Notifier if isinstance(Notifier, str) and Notifier.strip() else None)
-        object.__setattr__(self, "Channel", Channel if isinstance(Channel, str) and Channel.strip() else None)
         self.__post_init__()
 
     def _copy_from_msg(
@@ -429,33 +411,22 @@ class Msg(Struct):
         object.__setattr__(self, "Subject", other.Subject)
         object.__setattr__(self, "From", other.From)
         object.__setattr__(self, "Selector", other.Selector)
-        object.__setattr__(self, "Algorithm", other.Algorithm)
         object.__setattr__(self, "Body", other.Body)
         object.__setattr__(self, "Correlation", other.Correlation)
         object.__setattr__(self, "Timestamp", other.Timestamp)
         object.__setattr__(self, "Schema", other.Schema)
         object.__setattr__(self, "Hash", other.Hash)
         object.__setattr__(self, "Signature", other.Signature)
-        object.__setattr__(self, "Notifier", other.Notifier)
-        object.__setattr__(self, "Channel", other.Channel)
 
     def __post_init__(self) -> None:
         if not _is_domain_name(self.To) and not _is_uuid_string(self.To):
             raise MsgValidationError("To must be a domain string or a UUID")
         if not isinstance(self.Subject, str):
             raise MsgValidationError("Subject must be a string")
-        from_is_domain = self.From not in ("", "Anonymous") and _is_domain_name(self.From)
         try:
             object.__setattr__(self, "Schema", self.Schema if isinstance(self.Schema, Schema) else Schema(self.Schema))
         except (TypeError, ValueError) as exc:
             raise MsgValidationError(str(exc)) from exc
-        if self.Algorithm:
-            try:
-                object.__setattr__(self, "Algorithm", canonical_signature_algorithm(self.Algorithm))
-            except ValueError as exc:
-                raise MsgValidationError(str(exc)) from exc
-        if from_is_domain and self.Algorithm:
-            raise MsgValidationError("Algorithm must be empty for domain senders")
         if not _is_uuid_string(self.Correlation):
             raise MsgValidationError("Correlation must be a UUID")
         if not _is_z_timestamp(self.Timestamp):
@@ -483,12 +454,6 @@ class Msg(Struct):
         }
         if self.Selector:
             header["Selector"] = self.Selector
-        if self.Algorithm:
-            header["Algorithm"] = self.Algorithm
-        if self.Notifier:
-            header["Notifier"] = self.Notifier
-        if self.Channel:
-            header["Channel"] = self.Channel
 
         payload = {
             "Body": Struct.unwrap(self.Body),
@@ -620,13 +585,9 @@ class Msg(Struct):
         except Exception as exc:
             raise MsgValidationError(f"Malformed signature: {exc}") from exc
 
-        signature_algorithm = self.Algorithm or None
+        signature_algorithm = None
         if dns_lookup_used and key_type is not None:
             dns_algorithm = signature_algorithm_for_dkim_key_type(key_type)
-            if signature_algorithm is not None and signature_algorithm != dns_algorithm:
-                raise MsgValidationError(
-                    f"Signature algorithm {signature_algorithm} does not match DKIM algorithm {dns_algorithm}"
-                )
             signature_algorithm = dns_algorithm
         elif public_key is not None and signature_algorithm is None:
             signature_algorithm = signature_algorithm_for_public_key(public_key)
@@ -673,6 +634,30 @@ class Msg(Struct):
     def validate_signature(self, public_key: Optional[object] = None) -> bool:
         """Backward-compatible alias for :meth:`verify`."""
         return self.verify(public_key)
+
+    def sign_with(self, signer, *, signature_algorithm: str) -> "Msg":
+        """Return a new signed ``Msg`` using an external signing callable.
+
+        *signer* is called with the canonical bytes and must return the raw
+        signature bytes.  *signature_algorithm* must be a DKIM-style value
+        such as ``"ed25519-sha256"`` or ``"rsa-sha256"``.
+
+        This method is intended for cases where the signing key lives outside
+        the process (e.g. HSM, KMS, or a test lambda) and a :class:`Wallet`
+        or :class:`Domain` authority is not available.  Unlike
+        :meth:`Wallet.sign`, this method does **not** override ``From`` —
+        the caller must set ``From`` before calling ``sign_with``.
+        """
+        from pollyweb._crypto import encode_signature  # avoid circular at module level
+
+        canonical_signature_algorithm(signature_algorithm)
+        canonical = self.canonical()
+        raw_sig = signer(canonical)
+        return replace(
+            self,
+            Hash=hashlib.sha256(canonical).hexdigest(),
+            Signature=encode_signature(raw_sig),
+        )
 
     def send(self):
         """Validate this message, POST it to the receiver inbox, and return the parsed response.
@@ -727,12 +712,6 @@ class Msg(Struct):
         }
         if self.Selector:
             header["Selector"] = self.Selector
-        if self.Algorithm:
-            header["Algorithm"] = self.Algorithm
-        if self.Notifier:
-            header["Notifier"] = self.Notifier
-        if self.Channel:
-            header["Channel"] = self.Channel
 
         d: Dict[str, Any] = {
             "Header": header,
@@ -826,14 +805,12 @@ class Msg(Struct):
             To=h["To"],
             Subject=h["Subject"],
             Selector=h.get("Selector", ""),
-            Algorithm=h.get("Algorithm", ""),
             Body=d.get("Body", {}),
             Correlation=h["Correlation"],
             Timestamp=h["Timestamp"],
             Schema=h["Schema"],
             Hash=d.get("Hash"),
             Signature=d.get("Signature"),
-            Notifier=h.get("Notifier"),
         )
 
     @classmethod
@@ -860,14 +837,12 @@ class Msg(Struct):
             Subject = outbound["Subject"],
             From = outbound.get("From", ""),
             Selector = outbound.get("Selector", ""),
-            Algorithm = outbound.get("Algorithm", ""),
             Body = outbound.get("Body", {}),
             Correlation = outbound.get("Correlation"),
             Timestamp = outbound.get("Timestamp"),
             Schema = outbound.get("Schema", SCHEMA),
             Hash = outbound.get("Hash"),
             Signature = outbound.get("Signature"),
-            Notifier = outbound.get("Notifier"),
         )
 
 

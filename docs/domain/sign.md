@@ -4,8 +4,7 @@ Returns a new [`Msg`](../msg.md) with `From`, derived `Selector`, `Hash`, and `S
 
 Any existing `From` or `Selector` on the input message are overwritten.
 
-`sign()` calls [`domain.dns()`](dns.md) and writes the returned selector into [`Msg.Selector`](../msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain.
-For domain messages, the DKIM record is still the source of truth for the signature algorithm, but `domain.sign()` does not serialize `Header.Algorithm`; receivers infer it from DNS for the selected `Selector`.
+`sign()` calls [`domain.dns()`](dns.md) and writes the returned selector into [`Msg.Selector`](../msg.md), so the selector in the signed message always matches the active DNS/public-key state for the domain. The signature algorithm is inferred from the sender DKIM record during verification rather than being serialized in `Msg.Header`.
 
 ```python
 dns_record = domain.dns()
@@ -14,7 +13,6 @@ signed = domain.sign(msg)
 
 assert signed.From == domain.Name
 assert signed.Selector == selector
-assert signed.Algorithm == ""
 ```
 
 The `Domain.Selector` constructor field is informational and backward-compatible only. The signing path derives the selector from DNS state rather than trusting that field directly.

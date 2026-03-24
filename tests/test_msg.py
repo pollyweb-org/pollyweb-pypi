@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 import pollyweb as pw
+from pollyweb._crypto import canonical_signature_algorithm
 from pollyweb._transport import close_cached_https_connections
 from pollyweb.dns import DnsLookupError, DnsQueryDiagnostic, DnsVerificationDiagnostics
 from pollyweb.msg import SCHEMA
@@ -89,16 +90,12 @@ def _sign_msg(
     msg,
     signer,
     *,
-    signature_algorithm: str,
-    wire_algorithm: str | None = None):
-    normalized_algorithm = pw.msg.canonical_signature_algorithm(signature_algorithm)
-    prepared = replace(
-        msg,
-        Algorithm = normalized_algorithm if wire_algorithm is None else wire_algorithm)
-    canonical = prepared.canonical()
+    signature_algorithm: str):
+    normalized_algorithm = canonical_signature_algorithm(signature_algorithm)
+    canonical = msg.canonical()
     signature = signer(canonical, normalized_algorithm)
     return replace(
-        prepared,
+        msg,
         Hash = hashlib.sha256(canonical).hexdigest(),
         Signature = base64.b64encode(signature).decode("ascii"))
 
@@ -138,8 +135,7 @@ def signed(msg, private_key):
     return _sign_msg(
         msg,
         lambda canonical, _algorithm: private_key.sign(canonical),
-        signature_algorithm = "ed25519-sha256",
-        wire_algorithm = "")
+        signature_algorithm = "ed25519-sha256")
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +349,6 @@ class TestMsg:
         assert env.Correlation == correlation
 
     def test_unsigned_by_default(self, msg):
-        assert msg.Algorithm == ""
         assert msg.Hash is None
         assert msg.Signature is None
 
@@ -705,10 +700,6 @@ class TestMsg:
         ):
             pw.Msg(To="b.dom", Subject="Ping", Schema="not-a-schema")
 
-    def test_algorithm_must_be_supported_when_present(self):
-        with pytest.raises(pw.MsgValidationError, match="Unsupported signature algorithm"):
-            pw.Msg(To="b.dom", Subject="Ping", Algorithm="ml-dsa-87-sha512")
-
 class TestCanonical:
     def test_returns_bytes(self, msg):
         assert isinstance(msg.canonical(), bytes)
@@ -743,19 +734,9 @@ class TestCanonical:
         )
         assert "Selector" not in json.loads(msg.canonical())["Header"]
 
-    def test_algorithm_is_omitted_from_canonical_form_when_empty(self):
+    def test_algorithm_is_not_serialized_in_canonical_form(self):
         msg = pw.Msg(To="receiver.dom", Subject="Hello@Host", Body={"greeting": "hi"})
         assert "Algorithm" not in json.loads(msg.canonical())["Header"]
-
-    def test_algorithm_is_included_in_canonical_form_when_present(self):
-        msg = pw.Msg(
-            From="Anonymous",
-            To="receiver.dom",
-            Subject="Hello@Host",
-            Algorithm="ed25519-sha256",
-            Body={"greeting": "hi"},
-        )
-        assert json.loads(msg.canonical())["Header"]["Algorithm"] == "ed25519-sha256"
 
 
 # ---------------------------------------------------------------------------
@@ -764,12 +745,10 @@ class TestCanonical:
 
 class TestSign:
     def test_hash_and_signature_present(self, signed):
-        assert signed.Algorithm == ""
         assert signed.Hash is not None
         assert signed.Signature is not None
 
     def test_original_unchanged(self, msg, signed):
-        assert msg.Algorithm == ""
         assert msg.Hash is None
         assert signed.Hash is not None
 
@@ -790,10 +769,8 @@ class TestSign:
                 padding.PKCS1v15(),
                 hashes.SHA256(),
             ),
-            signature_algorithm = "rsa-sha256",
-            wire_algorithm = "")
+            signature_algorithm = "rsa-sha256")
 
-        assert signed.Algorithm == ""
         assert signed.verify(private_key.public_key()) is True
 
 
@@ -840,8 +817,7 @@ class TestSend:
         aliased = _sign_msg(
             aliased,
             lambda canonical, _algorithm: keypair.PrivateKey.sign(canonical),
-            signature_algorithm = "ed25519-sha256",
-            wire_algorithm = "")
+            signature_algorithm = "ed25519-sha256")
 
         captured: dict[str, object] = {}
 
@@ -971,7 +947,6 @@ class TestValidate:
             lambda canonical, _algorithm: private_key.sign(canonical),
             signature_algorithm = "ed25519-sha256")
         assert signed.Selector == ""
-        assert signed.Algorithm == "ed25519-sha256"
         assert signed.verify(private_key.public_key()) is True
 
     def test_round_trip_without_signature_verification(self, signed):
@@ -1025,8 +1000,7 @@ class TestValidate:
         signed_env = _sign_msg(
             signed_env,
             lambda canonical, _algorithm: private_key.sign(canonical),
-            signature_algorithm = "ed25519-sha256",
-            wire_algorithm = "")
+            signature_algorithm = "ed25519-sha256")
         with pytest.raises(pw.MsgValidationError, match="Missing Subject"):
             replace(signed_env, Subject="").verify(public_key)
 
@@ -1055,15 +1029,6 @@ class TestValidate:
         with pytest.raises(pw.MsgValidationError, match="Missing Selector"):
             replace(signed, Selector="").verify()
 
-    def test_domain_verification_rejects_header_algorithm_that_disagrees_with_sender_dkim(self, signed, private_key, public_key):
-        """Domain-originated messages must not serialize ``Header.Algorithm``."""
-
-        with pytest.raises(
-            pw.MsgValidationError,
-            match="Algorithm must be empty for domain senders",
-        ):
-            replace(signed, Algorithm="rsa-sha256")
-
     def test_missing_from_required_when_verifying(self, private_key):
         msg = pw.Msg(
             To="receiver.dom",
@@ -1074,7 +1039,6 @@ class TestValidate:
         canonical = msg.canonical()
         signed = replace(
             msg,
-            Algorithm="ed25519-sha256",
             Hash=hashlib.sha256(canonical).hexdigest(),
             Signature=base64.b64encode(private_key.sign(canonical)).decode("ascii"),
         )
@@ -1184,26 +1148,6 @@ class TestSerialization:
             Body={"greeting": "hi"},
         )
         assert "Selector" not in msg.to_dict()["Header"]
-        assert "Algorithm" not in msg.to_dict()["Header"]
-
-    def test_from_dict_reads_algorithm(self):
-        msg = pw.Msg.from_dict(
-            {
-                "Header": {
-                    "From": "123e4567-e89b-12d3-a456-426614174000",
-                    "To": "receiver.dom",
-                    "Subject": "Hello@Host",
-                    "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                    "Timestamp": "2025-06-01T12:00:00.000Z",
-                    "Algorithm": "rsa-sha256",
-                    "Schema": SCHEMA,
-                },
-                "Body": {"greeting": "hi"},
-                "Hash": "abc",
-                "Signature": "def",
-            }
-        )
-        assert msg.Algorithm == "rsa-sha256"
 
     def test_from_dict_defaults_empty_from_to_anonymous(self):
         msg = pw.Msg.from_dict(

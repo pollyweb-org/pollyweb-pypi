@@ -162,7 +162,6 @@ class Prompt:
         *,
         From: str = "",
         Selector: str = "",
-        Algorithm: str = "",
         Correlation: str = None,
         Timestamp: str = None
     ) -> Msg:
@@ -173,7 +172,6 @@ class Prompt:
             Subject = PROMPT_SUBJECT,
             From = From,
             Selector = Selector,
-            Algorithm = Algorithm,
             Body = self.to_dict(),
             Correlation = Correlation,
             Timestamp = Timestamp,

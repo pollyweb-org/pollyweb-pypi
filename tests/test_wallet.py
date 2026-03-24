@@ -16,8 +16,8 @@ class TestWallet:
         with pytest.raises(ValueError, match = "Anonymous wallets cannot sign messages"):
             wallet.sign(msg)
 
-    def test_pseudonymous_wallet_sign_sets_algorithm(self):
-        # Wallet signatures must carry an explicit wire algorithm.
+    def test_pseudonymous_wallet_sign_omits_algorithm_header(self):
+        # Wallet signatures should no longer serialize a wire algorithm header.
         wallet = pw.Wallet(
             ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479")
         msg = pw.Msg(To = "recipient.dom", Subject = "Hello@Host")
@@ -25,8 +25,7 @@ class TestWallet:
         signed = wallet.sign(msg)
 
         assert signed.From == wallet.ID
-        assert signed.Algorithm == "ed25519-sha256"
-        assert signed.to_dict()["Header"]["Algorithm"] == "ed25519-sha256"
+        assert "Algorithm" not in signed.to_dict()["Header"]
 
     def test_anonymous_send_posts_unsigned_message(self):
         # Anonymous wallets should POST without a signature envelope.

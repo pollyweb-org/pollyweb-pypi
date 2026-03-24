@@ -39,7 +39,6 @@ class TestDomainSign:
 
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw7"
-        assert signed.Algorithm == ""
         assert signed.verify(keypair.PublicKey) is True
 
     def test_domain_sign_with_external_signer_uses_explicit_selector(self, private_key):
@@ -65,7 +64,6 @@ class TestDomainSign:
         assert signed.From == "sender.dom"
         assert signed.Selector == "pw9"
         assert signer_calls == [signed.canonical()]
-        assert signed.Algorithm == ""
         assert signed.verify(private_key.public_key()) is True
 
     def test_domain_sign_with_external_signer_derives_algorithm_from_dkim_record(self, private_key):
@@ -90,7 +88,6 @@ class TestDomainSign:
         ):
             signed = domain.sign(msg)
 
-        assert signed.Algorithm == ""
         assert signer_calls == [signed.canonical()]
 
     def test_domain_sign_raises_when_external_signer_selector_has_no_dkim_record(self, private_key):
@@ -234,43 +231,7 @@ class TestDomain:
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
         signed = domain.sign(msg)
 
-        assert signed.Algorithm == ""
         assert "Algorithm" not in signed.to_dict()["Header"]
-
-    def test_rejects_algorithm_for_domain_sender(self):
-        with pytest.raises(
-            pw.MsgValidationError,
-            match = "Algorithm must be empty for domain senders",
-        ):
-            pw.Msg(
-                From = "sender.dom",
-                To = "recipient.dom",
-                Subject = "Hello@Host",
-                Algorithm = "ed25519-sha256",
-            )
-
-    def test_parse_rejects_algorithm_for_domain_sender(self):
-        with pytest.raises(
-            pw.MsgValidationError,
-            match = "Algorithm must be empty for domain senders",
-        ):
-            pw.Msg.parse(
-                {
-                    "Header": {
-                        "From": "sender.dom",
-                        "To": "recipient.dom",
-                        "Subject": "Hello@Host",
-                        "Correlation": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                        "Timestamp": "2025-06-01T12:00:00.000Z",
-                        "Schema": "pollyweb.org/MSG:1.0",
-                        "Selector": "pw1",
-                        "Algorithm": "ed25519-sha256",
-                    },
-                    "Body": {},
-                    "Hash": "deadbeef",
-                    "Signature": "ZmFrZQ==",
-                }
-            )
 
     def test_sign_preserves_to_and_subject(self, domain):
         msg = pw.Msg(To="recipient.dom", Subject="Hello@Host")
