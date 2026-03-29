@@ -1,6 +1,7 @@
 - [x] Confirm workflow failure mode for run #82
 - [x] Patch publish workflow so optional private dispatch cannot invalidate the release run
 - [x] Validate workflow syntax and summarize the root cause
+- [ ] Run `./tools/audit-llm-context.sh` after changes to `AGENTS.md`, `docs/`, or `tasks/lessons.md`, and trim touched routing docs or log follow-up work.
 
 Review:
 - `python -c 'import yaml, pathlib; yaml.safe_load(...)'` confirms `.github/workflows/publish.yml` remains valid YAML after the fix.

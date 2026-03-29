@@ -84,3 +84,5 @@ assert same.Text == prompt.Text
 - [`README.md`](../README.md) — repository overview
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contributor workflow and publishing notes
 - [`pyproject.toml`](../pyproject.toml) — package metadata and PyPI links
+- [`llm-token-efficiency.md`](llm-token-efficiency.md) — keep shared routing docs cheap to reload
+- [`../tasks/lessons.md`](../tasks/lessons.md) — package-specific learnings that should not live in `AGENTS.md`
