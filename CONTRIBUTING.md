@@ -11,8 +11,20 @@ pytest
 ```
 
 This repository also includes a `pre-push` hook at `.githooks/pre-push` that
-runs `pytest` and `pip-audit` against the local project, and blocks `git push`
-when tests fail or when dependency vulnerabilities are reported.
+runs `pytest -m "not live_dns"` plus the shared
+`./tools/run-security-scans.sh` checks against the local project, and blocks
+`git push` when tests fail or when dependency, static-analysis, or
+secret-scanning checks report problems.
+
+Install the local development tooling once per clone:
+
+```bash
+python -m pip install -e '.[dev]'
+```
+
+If local Python cannot install `semgrep` yet, `./tools/run-security-scans.sh`
+falls back to a local `semgrep` binary, then `pipx`, then the official
+Semgrep Docker image instead of skipping the scan.
 
 Enable it once per local clone:
 
@@ -26,8 +38,10 @@ The repository includes a GitHub Actions workflow at
 `.github/workflows/publish.yml`.
 
 - Every push runs the test suite on Python 3.10, 3.11, and 3.12.
+- Every push and pull request runs the security scan job, which executes
+  `pip-audit`, `bandit`, `detect-secrets`, `semgrep`, `gitleaks`, and `trivy`.
 - Pushes to `main` build and publish the package to PyPI, but only after the
-  test job passes.
+  test and security jobs pass.
 - Package versions are generated automatically from Git metadata via
   `setuptools-scm`. The publish workflow turns the latest `v*` tag into a
   stable release version, incrementing the patch number for later pushes on

@@ -18,6 +18,15 @@ dependencies = [
     "fastjsonschema>=2.21.1"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "build>=1.2",
+    "pip-audit>=2.8.0",
+    "bandit[toml]>=1.8.0",
+    "detect-secrets>=1.5.0"
+]
+
 [project.urls]
 "Website" = "https://www.pollyweb.org"
 "Documentation" = "https://github.com/pollyweb-org/pollyweb-pypi/tree/main/docs"
@@ -34,3 +43,6 @@ markers = [
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"
+
+[tool.bandit]
+exclude_dirs = [".venv", ".build", "dist", "tests"]

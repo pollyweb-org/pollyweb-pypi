@@ -292,7 +292,7 @@ def _compact_string_schema(
     required = schema.endswith("!")
     token = schema[:-1] if required else schema
 
-    if token == "str":
+    if token == "str":  # nosec B105
         converted: dict[str, Any] = {
             "type": "string"}
         if required:

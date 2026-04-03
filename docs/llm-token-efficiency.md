@@ -6,9 +6,9 @@ Use this when changing package docs or repo instructions so future chats can loa
 
 Run `./tools/audit-llm-context.sh` whenever a change touches:
 
-- [AGENTS.md](/Users/jorgemf/Git/pollyweb-pypi/AGENTS.md)
-- anything under [docs](/Users/jorgemf/Git/pollyweb-pypi/docs)
-- [tasks/lessons.md](/Users/jorgemf/Git/pollyweb-pypi/tasks/lessons.md)
+- [AGENTS.md](../AGENTS.md)
+- anything under [docs](.)
+- [tasks/lessons.md](../tasks/lessons.md)
 
 ## Working loop
 
@@ -16,10 +16,10 @@ Run `./tools/audit-llm-context.sh` whenever a change touches:
 2. Make the code or doc change.
 3. Run `./tools/audit-llm-context.sh`.
 4. If a touched routing doc is over budget, condense it or split detail into a narrower method page in the same change.
-5. If cleanup is larger than the current task should absorb, log it in [tasks/todo.md](/Users/jorgemf/Git/pollyweb-pypi/tasks/todo.md).
+5. If cleanup is larger than the current task should absorb, log it in [tasks/todo.md](../tasks/todo.md).
 
 ## Heuristics
 
-- Keep [AGENTS.md](/Users/jorgemf/Git/pollyweb-pypi/AGENTS.md) focused on durable rules and links.
+- Keep [AGENTS.md](../AGENTS.md) focused on durable rules and links.
 - Keep detailed API semantics in the relevant `docs/*.md` page instead of in repo entrypoints.
-- Keep package-specific learnings in [tasks/lessons.md](/Users/jorgemf/Git/pollyweb-pypi/tasks/lessons.md).
+- Keep package-specific learnings in [tasks/lessons.md](../tasks/lessons.md).

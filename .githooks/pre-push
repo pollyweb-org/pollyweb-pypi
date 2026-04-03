@@ -12,27 +12,18 @@ fi
 
 echo "Running test suite before push..."
 
-if ! (cd "$REPO_ROOT" && "$PYTHON_BIN" -m pytest); then
+if ! (cd "$REPO_ROOT" && "$PYTHON_BIN" -m pytest -m "not live_dns"); then
   echo ""
   echo "Push blocked: tests failed."
   exit 1
 fi
 
-echo "Running dependency security audit before push..."
+echo "Running security scans before push..."
 
-if ! "$PYTHON_BIN" -m pip_audit --version >/dev/null 2>&1; then
+if ! (cd "$REPO_ROOT" && ./tools/run-security-scans.sh); then
   echo ""
-  echo "Push blocked: pip-audit is not installed for $PYTHON_BIN."
-  echo "Install it with: $PYTHON_BIN -m pip install pip-audit"
+  echo "Push blocked: security scans failed."
   exit 1
 fi
 
-# Scan project dependencies (from the local project) and fail when known vulnerabilities exist.
-if ! "$PYTHON_BIN" -m pip_audit --progress-spinner off .; then
-  echo ""
-  echo "Push blocked: dependency security issues are pending."
-  echo "Fix or explicitly resolve the reported vulnerabilities, then push again."
-  exit 1
-fi
-
-echo "Tests and security audit passed. Continuing push."
+echo "Tests and security scans passed. Continuing push."

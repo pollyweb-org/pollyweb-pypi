@@ -876,11 +876,13 @@ class TestSend:
                 self,
                 host,
                 port = None,
-                timeout = None
+                timeout = None,
+                context = None
             ):
                 self.host = host
                 self.port = port
                 self.timeout = timeout
+                self.context = context
                 self.requests: list[tuple[str, str, bytes, dict[str, str]]] = []
                 FakeConnection.instances.append(self)
 

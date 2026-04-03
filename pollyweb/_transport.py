@@ -2,6 +2,7 @@
 
 import http.client
 import io
+import ssl
 import threading
 import urllib.error
 from urllib.parse import urlsplit
@@ -15,6 +16,19 @@ class _HttpsConnectionPool:
 
         self._connections: dict[tuple[str, int], http.client.HTTPSConnection] = {}
         self._lock = threading.Lock()
+
+    def _close_connection(
+        self,
+        connection: http.client.HTTPSConnection
+    ) -> bool:
+        """Attempt to close one HTTPS connection and report whether it worked."""
+
+        try:
+            connection.close()
+        except Exception:
+            return False
+
+        return True
 
     def _get_connection(
         self,
@@ -35,10 +49,12 @@ class _HttpsConnectionPool:
             # Reuse one connection per destination host so repeated sends can
             # avoid a fresh TCP/TLS handshake when the server keeps the socket
             # alive between requests.
-            connection = http.client.HTTPSConnection(
+            # Use an explicit default TLS context so certificate verification remains enabled.
+            connection = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
                 host,
                 port = port,
-                timeout = timeout)
+                timeout = timeout,
+                context = ssl.create_default_context())
             self._connections[cache_key] = connection
             return connection
 
@@ -55,10 +71,7 @@ class _HttpsConnectionPool:
             connection = self._connections.pop(cache_key, None)
 
         if connection is not None:
-            try:
-                connection.close()
-            except Exception:
-                pass
+            self._close_connection(connection)
 
     def close(self) -> None:
         """Close every cached connection and clear the pool."""
@@ -68,10 +81,7 @@ class _HttpsConnectionPool:
             self._connections.clear()
 
         for connection in connections:
-            try:
-                connection.close()
-            except Exception:
-                pass
+            self._close_connection(connection)
 
     def post(
         self,
